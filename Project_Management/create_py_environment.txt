@@ -1,0 +1,8 @@
+## python version
+Python 3.13.4
+
+## using power shell terminal
+.\tflaenv1\Scripts\activate.bat
+
+## to deactivate the environment
+deactivate

@@ -1,0 +1,25 @@
+Create a python relationship application that can read terraform files and create a visual relationship map of the modules and their dependencies.
+
+FR1: Terraform Configuration Parsing
+FR1.1: Parse Terraform configuration files (.tf) and modules
+FR1.2: Extract module definitions, sources, and dependencies
+
+
+FR2: Dependency Analysis
+FR2.1: Build dependency graph of modules and resources
+FR2.2: Detect circular dependencies between modules
+
+
+FR3: Visualization Generation
+FR3.1: Generate interactive visualizations of module relationships
+FR3.2: Support output formats HTML
+FR3.3: Create hierarchical tree views of module structures
+FR3.4: Generate dependency graphs with directional arrows
+FR3.5: Color-code modules by type, environment, or status
+
+FR4: User Interface
+FR4.1: Command-line interface for batch processing
+
+I already create a python virtual environment named tflaenv. You can find the instructions in create_py_environment.txt file.
+the project root folder is TERRAFORM-MODULE-LINEAGE
+The main application file should be named tfla.py and should be located in the root folder.
