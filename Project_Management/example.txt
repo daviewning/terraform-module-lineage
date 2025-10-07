@@ -3,3 +3,10 @@ python .\tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraf
 python .\tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap" --output ".\out\lineage.html" --layout hierarchical --color-by type
 
 python .\tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap\modules" --output ".\out\lineage.html" --layout hierarchical --color-by type
+
+
+# This will show Git entities (includes main.tf with seed_bootstrap)
+python .\tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap" --output ".\out\lineage.html" --layout hierarchical --color-by type
+
+# This will NOT show Git entities (only contains registry modules)
+python .\tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap\modules" --output ".\out\lineage.html" --layout hierarchical --color-by type
