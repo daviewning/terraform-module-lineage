@@ -24,12 +24,23 @@ def render_html(G, output_path: Path, hierarchical: bool, color_by: str = "type"
             
         # Get the level for hierarchical positioning
         level = attrs.get("level")
+        
+        # Determine font color based on module type for better readability
+        font_color = "black"  # Default font color
+        module_type = attrs.get("module_type", "")
+        if module_type == "git_module":
+            font_color = "white"  # White text for dark Git module backgrounds
+        elif module_type == "git_entity":
+            font_color = "white"  # White text for Git repository entities
+        elif module_type == "registry_module":
+            font_color = "white"  # White text for registry modules (brown background)
+        
         node_options = {
             "label": str(attrs.get("label", nid)),
             "title": title,
             "color": color,
             "shape": shape,
-            "font": {"face": "Segoe UI", "size": 16},
+            "font": {"face": "Segoe UI", "size": 16, "color": font_color},
         }
         
         # Add level information for hierarchical layout
@@ -499,7 +510,7 @@ def _color_for(attrs: Dict, color_by: str) -> str:
         elif is_registry_entity:
             return "#4caf50"  # Green for registry entities (better readability)
         elif is_git_module:
-            return "#673ab7"  # Purple for git modules
+            return "#3f51b5"  # Indigo for git modules (better readability with black text)
         elif is_git_entity:
             return "#2196f3"  # Blue for git repositories (better readability)
         return base_color
@@ -516,7 +527,7 @@ def _color_for(attrs: Dict, color_by: str) -> str:
         elif is_registry_entity:
             return "#4caf50"  # Green for registry entities
         elif is_git_module:
-            return "#673ab7"  # Purple for git modules
+            return "#3f51b5"  # Indigo for git modules (better readability with black text)
         elif is_git_entity:
             return "#2196f3"  # Blue for git repositories (better readability)
         return "#03a9f4" if kind == "module" else "#8bc34a"
@@ -533,7 +544,7 @@ def _color_for(attrs: Dict, color_by: str) -> str:
     elif is_registry_entity:
         return "#4caf50"  # Green for registry entities (better readability)
     elif is_git_module:
-        return "#673ab7"  # Purple for git modules
+        return "#3f51b5"  # Indigo for git modules (better readability with black text)
     elif is_git_entity:
         return "#2196f3"  # Blue for git repositories (better readability)
     return "#ff9800" if kind == "module" else "#00bcd4"
