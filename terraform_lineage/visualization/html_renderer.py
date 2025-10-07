@@ -473,6 +473,8 @@ def _color_for(attrs: Dict, color_by: str) -> str:
     is_source_module = module_id.startswith("source_module:") or "[source module]" in str(attrs.get("label", ""))
     is_registry_module = module_type == "registry_module" or "[registry]" in str(attrs.get("label", ""))
     is_registry_entity = module_type == "registry_entity" or "[public registry]" in str(attrs.get("label", ""))
+    is_git_module = module_type == "git_module" or "[git module]" in str(attrs.get("label", ""))
+    is_git_entity = module_type == "git_entity" or "[git repository]" in str(attrs.get("label", ""))
     is_terraform_file = kind == "terraform_file" or module_type == "terraform_file"
     
     if color_by == "environment":
@@ -496,6 +498,10 @@ def _color_for(attrs: Dict, color_by: str) -> str:
             return "#795548"  # Brown for registry modules
         elif is_registry_entity:
             return "#4caf50"  # Green for registry entities (better readability)
+        elif is_git_module:
+            return "#673ab7"  # Purple for git modules
+        elif is_git_entity:
+            return "#2196f3"  # Blue for git repositories (better readability)
         return base_color
     
     if color_by == "status":
@@ -509,6 +515,10 @@ def _color_for(attrs: Dict, color_by: str) -> str:
             return "#795548"  # Brown for registry modules
         elif is_registry_entity:
             return "#4caf50"  # Green for registry entities
+        elif is_git_module:
+            return "#673ab7"  # Purple for git modules
+        elif is_git_entity:
+            return "#2196f3"  # Blue for git repositories (better readability)
         return "#03a9f4" if kind == "module" else "#8bc34a"
     
     # Default color scheme by type
@@ -522,6 +532,10 @@ def _color_for(attrs: Dict, color_by: str) -> str:
         return "#795548"  # Brown for registry modules
     elif is_registry_entity:
         return "#4caf50"  # Green for registry entities (better readability)
+    elif is_git_module:
+        return "#673ab7"  # Purple for git modules
+    elif is_git_entity:
+        return "#2196f3"  # Blue for git repositories (better readability)
     return "#ff9800" if kind == "module" else "#00bcd4"
 
 def _darken_color(hex_color: str) -> str:
@@ -558,11 +572,12 @@ def _build_vscode_url(file_path: str) -> str:
     return f"vscode://file/{normalized_path}"
 
 def _tooltip(attrs: Dict) -> str:
-    """Build tooltip content for nodes, including clickable file and registry links."""
+    """Build tooltip content for nodes, including clickable file, registry, and git links."""
     file_path = attrs.get("file_path", "")
     folder_path = attrs.get("folder_path", "")
     d = attrs.get("dir", "")
     registry_source = attrs.get("registry_source", "")
+    git_url = attrs.get("git_url", "")
     kind = attrs.get("kind", "")
     
     # For folders, create a clickable link to open in VS Code
@@ -578,6 +593,10 @@ def _tooltip(attrs: Dict) -> str:
             vscode_url = _build_vscode_url(file_path)
             return f'<a href="{vscode_url}" style="color: #0066cc; text-decoration: underline; font-weight: bold;">{file_path}</a>'
         return attrs.get("name", "")
+    
+    # For Git repositories, create a clickable link to the Git URL
+    if kind == "git_entity" and git_url:
+        return f'<a href="{git_url}" target="_blank" style="color: #0066cc; text-decoration: underline; font-weight: bold;">{git_url}</a>'
     
     # For registry modules, create a clickable link to registry
     if registry_source:

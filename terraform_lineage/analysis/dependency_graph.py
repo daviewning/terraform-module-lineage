@@ -118,6 +118,10 @@ def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.
             label = f"{m.name}\n[registry]"
             module_type = "registry_module"
             level = 2  # Third layer - modules (registry modules are still modules)
+        elif m.source and _is_git_source(m.source):
+            label = f"{m.name}\n[git module]"
+            module_type = "git_module"
+            level = 2  # Third layer - modules (git modules are still modules)
         else:
             label = f"{m.name}\n[module]"
             module_type = "local_module" 
@@ -143,10 +147,10 @@ def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.
             if G.has_node(module_id):
                 G.add_edge(file_id, module_id, edge_type="contains", style="dashed")
 
-    # Add edges for explicit depends_on (but not from registry modules)
+    # Add edges for explicit depends_on (but not from registry or git modules)
     for mid, m in parsed.modules.items():
-        # Skip creating edges FROM registry modules - they are external dependencies
-        if m.source and _is_registry_module(m.source):
+        # Skip creating edges FROM registry or git modules - they are external dependencies
+        if m.source and (_is_registry_module(m.source) or _is_git_source(m.source)):
             continue
             
         targets = _resolve_module_like_refs(parsed, m.explicit_deps)
@@ -154,10 +158,10 @@ def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.
             if G.has_node(tgt):
                 G.add_edge(mid, tgt)
 
-    # Add edges for implicit module references in inputs (but not between modules in same file or from registry modules)
+    # Add edges for implicit module references in inputs (but not between modules in same file or from registry/git modules)
     for mid, m in parsed.modules.items():
-        # Skip creating edges FROM registry modules - they are external dependencies
-        if m.source and _is_registry_module(m.source):
+        # Skip creating edges FROM registry or git modules - they are external dependencies
+        if m.source and (_is_registry_module(m.source) or _is_git_source(m.source)):
             continue
             
         for ref_name in m.implicit_module_refs:
@@ -193,6 +197,31 @@ def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.
             
             # Connect the local module to the registry entity
             G.add_edge(mid, registry_id)
+    
+    # Add Git repository entities and connect modules to them
+    for mid, m in parsed.modules.items():
+        if m.source and _is_git_source(m.source):
+            git_id = f"git:{m.source}"
+            git_name, git_path = _parse_git_source(m.source)
+            
+            # Create Git repository entity if it doesn't exist
+            if not G.has_node(git_id):
+                git_label = f"{git_name}\n{git_path}\n[git repository]"
+                G.add_node(
+                    git_id,
+                    id=git_id,
+                    kind="git_entity",
+                    module_type="git_entity", 
+                    label=git_label,
+                    name=git_name,
+                    path=git_path,
+                    source=m.source,
+                    git_url=_extract_git_url(m.source),
+                    level=3,  # Rightmost layer - external entities
+                )
+            
+            # Connect the local module to the Git repository entity
+            G.add_edge(mid, git_id)
     
     # Add edges for local module sources
     for mid, m in parsed.modules.items():
@@ -322,3 +351,89 @@ def _find_source_modules(parsed: ParsedTerraform, module: any, current_mid: str)
             source_modules.append(mid)
     
     return source_modules
+
+def _is_git_source(source: str) -> bool:
+    """Check if a module source is from a Git repository."""
+    if not source:
+        return False
+    
+    # Git sources start with git:: or contain git URLs
+    return (source.startswith("git::") or 
+            source.startswith("github.com") or
+            source.startswith("gitlab.com") or
+            source.startswith("bitbucket.org") or
+            ".git" in source)
+
+def _parse_git_source(source: str) -> tuple[str, str]:
+    """Parse a Git source into repository name and path."""
+    if source.startswith("git::"):
+        # Remove git:: prefix
+        git_url = source[5:]
+    else:
+        git_url = source
+    
+    # Extract repository name from URL
+    if "//" in git_url:
+        # Split on // to get path portion
+        if git_url.startswith("https://") or git_url.startswith("http://"):
+            # Format: https://github.com/owner/repo.git//path
+            url_part = git_url.split("//")[0]
+            path_part = git_url.split("//")[1] if "//" in git_url else ""
+        else:
+            # Format: github.com/owner/repo.git//path
+            parts = git_url.split("//")
+            url_part = parts[0]
+            path_part = parts[1] if len(parts) > 1 else ""
+    else:
+        url_part = git_url
+        path_part = ""
+    
+    # Extract repository name from URL
+    repo_name = ""
+    if "github.com" in url_part or "gitlab.com" in url_part or "bitbucket.org" in url_part:
+        # Extract owner/repo from URL
+        url_parts = url_part.replace("https://", "").replace("http://", "").split("/")
+        if len(url_parts) >= 3:
+            owner = url_parts[1]
+            repo = url_parts[2].replace(".git", "")
+            repo_name = f"{owner}/{repo}"
+        else:
+            repo_name = url_part.split("/")[-1].replace(".git", "")
+    else:
+        repo_name = url_part.split("/")[-1].replace(".git", "")
+    
+    # Format path
+    if path_part:
+        path_display = f"path: {path_part}"
+    else:
+        path_display = "root"
+    
+    return repo_name, path_display
+
+def _extract_git_url(source: str) -> str:
+    """Extract the raw Git URL from a Terraform Git source."""
+    if source.startswith("git::"):
+        git_url = source[5:]  # Remove git:: prefix
+        # Look for the Terraform path separator "//" but not the protocol "://"
+        if "//" in git_url and not git_url.startswith("http"):
+            # Split on the first occurrence of "//" that's not part of the protocol
+            parts = git_url.split("//")
+            if len(parts) > 1 and "://" not in parts[0]:
+                return parts[0]
+        
+        # For URLs like https://github.com/user/repo.git//path, we need to be careful
+        if "//" in git_url:
+            # Find all "//" occurrences
+            index = 0
+            while True:
+                index = git_url.find("//", index)
+                if index == -1:
+                    break
+                # Check if this "//" is not part of protocol (like https://)
+                if index > 0 and git_url[index-1] != ':':
+                    return git_url[:index]
+                index += 2
+        
+        return git_url
+    else:
+        return source
