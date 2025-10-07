@@ -411,19 +411,17 @@ def _parse_git_source(source: str) -> tuple[str, str]:
     return repo_name, path_display
 
 def _extract_git_url(source: str) -> str:
-    """Extract the raw Git URL from a Terraform Git source."""
+    """Extract and construct the proper GitHub URL from a Terraform Git source."""
     if source.startswith("git::"):
         git_url = source[5:]  # Remove git:: prefix
-        # Look for the Terraform path separator "//" but not the protocol "://"
-        if "//" in git_url and not git_url.startswith("http"):
-            # Split on the first occurrence of "//" that's not part of the protocol
-            parts = git_url.split("//")
-            if len(parts) > 1 and "://" not in parts[0]:
-                return parts[0]
+        
+        # Split on the path separator "//" but be careful with protocol "://"
+        repo_url = ""
+        path = ""
         
         # For URLs like https://github.com/user/repo.git//path, we need to be careful
         if "//" in git_url:
-            # Find all "//" occurrences
+            # Find the "//" that's not part of protocol (like https://)
             index = 0
             while True:
                 index = git_url.find("//", index)
@@ -431,9 +429,27 @@ def _extract_git_url(source: str) -> str:
                     break
                 # Check if this "//" is not part of protocol (like https://)
                 if index > 0 and git_url[index-1] != ':':
-                    return git_url[:index]
+                    repo_url = git_url[:index]
+                    path = git_url[index+2:]  # Get path after "//"
+                    break
                 index += 2
         
-        return git_url
+        if not repo_url:
+            repo_url = git_url
+        
+        # Clean up repo URL (remove .git extension)
+        if repo_url.endswith('.git'):
+            repo_url = repo_url[:-4]
+        
+        # Construct proper GitHub URL with path
+        if path and ("github.com" in repo_url):
+            # Convert to GitHub tree URL format
+            return f"{repo_url}/tree/main/{path}"
+        elif path and ("gitlab.com" in repo_url):
+            # Convert to GitLab tree URL format
+            return f"{repo_url}/-/tree/main/{path}"
+        else:
+            # Return base repository URL
+            return repo_url
     else:
         return source
