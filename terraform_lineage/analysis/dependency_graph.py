@@ -62,37 +62,9 @@ def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.
                 
             terraform_files[file_id]['modules'].append(mid)
     
-    # Add folder entities to the graph (Level 0 - leftmost)
-    for folder_id, folder_info in folders.items():
-        folder_label = f"{folder_info['folder_name']}\n[folder]"
-        G.add_node(
-            folder_id,
-            id=folder_id,
-            kind="folder",
-            module_type="folder",
-            label=folder_label,
-            name=folder_info['folder_name'],
-            folder_path=folder_info['folder_path'],
-            display_path=folder_info['display_path'],
-            level=0,  # Leftmost layer
-        )
+    # (Folder entities are now added after resource processing)
     
-    # Add terraform file entities to the graph (Level 1)
-    for file_id, file_info in terraform_files.items():
-        file_label = f"{file_info['file_name']}\n[terraform file]"
-        G.add_node(
-            file_id,
-            id=file_id,
-            kind="terraform_file",
-            module_type="terraform_file",
-            label=file_label,
-            name=file_info['file_name'],
-            file_path=file_info['file_path'],
-            file_name=file_info['file_name'],
-            folder_path=file_info['folder_path'],
-            folder_name=file_info['folder_name'],
-            level=1,  # Second layer
-        )
+    # (Terraform file entities are now added after resource processing)
     
     # Add edges from folders to their contained files
     for folder_id, folder_info in folders.items():
@@ -148,14 +120,55 @@ def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.
         for rid, r in parsed.resources.items():
             if r.file_path and r.file_name:
                 file_id = f"file:{r.file_path}"
-                if file_id in terraform_files:
-                    if 'resources' not in terraform_files[file_id]:
-                        terraform_files[file_id]['resources'] = []
-                    terraform_files[file_id]['resources'].append(rid)
+                # If the file doesn't exist in terraform_files, create it (for resource-only files)
+                if file_id not in terraform_files:
+                    file_path_obj = parsed.root_dir / r.file_path if not Path(r.file_path).is_absolute() else Path(r.file_path)
+                    folder_path = file_path_obj.parent
+                    folder_name = folder_path.name
+                    
+                    terraform_files[file_id] = {
+                        'file_path': r.file_path,
+                        'file_name': r.file_name,
+                        'folder_path': str(folder_path),
+                        'folder_name': folder_name,
+                        'modules': []
+                    }
+                    
+                    # Also add the folder to the hierarchy if it doesn't exist
+                    current_path = folder_path
+                    while current_path != parsed.root_dir.parent and current_path != current_path.parent:
+                        folder_id = f"folder:{current_path}"
+                        if folder_id not in folders:
+                            try:
+                                rel_folder_path = current_path.relative_to(parsed.root_dir)
+                                display_path = str(rel_folder_path).replace("\\", "/")
+                                if display_path == ".":
+                                    display_path = current_path.name
+                            except ValueError:
+                                display_path = str(current_path)
+                            
+                            folders[folder_id] = {
+                                'folder_path': str(current_path),
+                                'folder_name': current_path.name,
+                                'display_path': display_path,
+                                'files': [],
+                                'parent_path': str(current_path.parent) if current_path.parent != current_path else None
+                            }
+                        
+                        # Add file to its immediate parent folder
+                        if current_path == folder_path:
+                            folders[folder_id]['files'].append(file_id)
+                        
+                        current_path = current_path.parent
+                
+                # Add resource to the file
+                if 'resources' not in terraform_files[file_id]:
+                    terraform_files[file_id]['resources'] = []
+                terraform_files[file_id]['resources'].append(rid)
         
         # Add resource nodes to the graph
         for rid, r in parsed.resources.items():
-            resource_label = f"{r.type}.{r.name}\n[resource]"
+            resource_label = f"{r.type}.{r.name}\n[terraform resource]"
             G.add_node(
                 rid,
                 id=rid,
@@ -167,8 +180,54 @@ def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.
                 dir=r.dir,
                 file_path=r.file_path or "",
                 file_name=r.file_name or "",
-                level=2,  # Same level as modules
+                level=3,  # Put resources at level 3 to separate from modules
             )
+
+    # NOW Add terraform file entities to the graph (Level 1) - after resource processing
+    for file_id, file_info in terraform_files.items():
+        file_label = f"{file_info['file_name']}\n[terraform file]"
+        G.add_node(
+            file_id,
+            id=file_id,
+            kind="terraform_file",
+            module_type="terraform_file",
+            label=file_label,
+            name=file_info['file_name'],
+            file_path=file_info['file_path'],
+            file_name=file_info['file_name'],
+            folder_path=file_info['folder_path'],
+            folder_name=file_info['folder_name'],
+            level=1,  # Second layer
+        )
+
+    # NOW Add folder entities to the graph (Level 0) - after resource processing
+    for folder_id, folder_info in folders.items():
+        folder_label = f"{folder_info['folder_name']}\n[folder]"
+        G.add_node(
+            folder_id,
+            id=folder_id,
+            kind="folder",
+            module_type="folder",
+            label=folder_label,
+            name=folder_info['folder_name'],
+            folder_path=folder_info['folder_path'],
+            display_path=folder_info['display_path'],
+            level=0,  # Leftmost layer
+        )
+
+    # Add edges from folders to their contained files
+    for folder_id, folder_info in folders.items():
+        for file_id in folder_info['files']:
+            if G.has_node(file_id):
+                G.add_edge(folder_id, file_id, edge_type="contains", style="dashed")
+
+    # Add edges between parent and child folders
+    for folder_id, folder_info in folders.items():
+        parent_path = folder_info.get('parent_path')
+        if parent_path:
+            parent_folder_id = f"folder:{parent_path}"
+            if parent_folder_id in folders and G.has_node(parent_folder_id):
+                G.add_edge(parent_folder_id, folder_id, edge_type="contains", style="dashed")
 
     # Add edges from terraform files to their contained modules
     for file_id, file_info in terraform_files.items():

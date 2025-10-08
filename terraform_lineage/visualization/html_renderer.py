@@ -5,8 +5,15 @@ from typing import Dict
 from pyvis.network import Network
 
 def render_html(G, output_path: Path, hierarchical: bool, color_by: str = "type") -> None:
-    net = Network(height="850px", width="100%", directed=True, notebook=False)
-    net.set_options(_net_options(hierarchical))
+    net = Network(height="1000px", width="100%", directed=True, notebook=False)
+    
+    # Pre-calculate positions for three-column layout
+    folders = [(nid, attrs) for nid, attrs in G.nodes(data=True) if attrs.get("kind") == "folder"]
+    terraform_files = [(nid, attrs) for nid, attrs in G.nodes(data=True) if attrs.get("kind") == "terraform_file"]
+    other_entities = [(nid, attrs) for nid, attrs in G.nodes(data=True) if attrs.get("kind") not in ["folder", "terraform_file"]]
+    
+    # Use custom three-column layout instead of hierarchical
+    net.set_options(_three_column_layout_options())
 
     for nid, attrs in G.nodes(data=True):
         color = _color_for(attrs, color_by)
@@ -47,7 +54,27 @@ def render_html(G, output_path: Path, hierarchical: bool, color_by: str = "type"
             "font": {"face": "Segoe UI", "size": 16, "color": font_color},
         }
         
-        # Add level information for hierarchical layout
+        # Add custom positioning for three-column layout
+        if attrs.get("kind") == "folder":
+            # Left column: Folders
+            folder_index = next(i for i, (fid, _) in enumerate(folders) if fid == nid)
+            node_options["x"] = -600
+            node_options["y"] = folder_index * 100 - len(folders) * 50
+            node_options["physics"] = False
+        elif attrs.get("kind") == "terraform_file":
+            # Middle column: Terraform files
+            tf_index = next(i for i, (tid, _) in enumerate(terraform_files) if tid == nid)
+            node_options["x"] = 0
+            node_options["y"] = tf_index * 100 - len(terraform_files) * 50
+            node_options["physics"] = False
+        else:
+            # Right column: Other entities (modules, resources, registry, git)
+            other_index = next(i for i, (oid, _) in enumerate(other_entities) if oid == nid)
+            node_options["x"] = 600
+            node_options["y"] = other_index * 100 - len(other_entities) * 50
+            node_options["physics"] = False
+        
+        # Add level information for hierarchical layout (fallback)
         if level is not None:
             node_options["level"] = level
             
@@ -392,6 +419,32 @@ def _add_search_interface(output_path: Path) -> None:
     # Write the modified HTML back
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(html_content)
+
+def _three_column_layout_options() -> str:
+    """Options for three-column layout: folders left, terraform files middle, others right."""
+    return """{
+      "physics": {
+        "enabled": false
+      },
+      "layout": {
+        "hierarchical": {
+          "enabled": false
+        }
+      },
+      "interaction": {
+        "dragNodes": true,
+        "dragView": true,
+        "zoomView": true
+      },
+      "nodes": {
+        "physics": false,
+        "fixed": {
+          "x": false,
+          "y": false
+        }
+      },
+      "edges": { "arrows": { "to": { "enabled": true } }, "smooth": { "type": "cubicBezier" } }
+    }"""
 
 def _net_options(hierarchical: bool) -> str:
     if hierarchical:
