@@ -22,15 +22,28 @@ class ModuleInfo:
     implicit_module_refs: List[str] = field(default_factory=list)
 
 @dataclass
+class ResourceInfo:
+    id: str
+    name: str
+    type: str
+    dir: str
+    file_path: str | None = None  # Path to the .tf file containing this resource
+    file_name: str | None = None  # Name of the .tf file
+    config: Dict[str, Any] = field(default_factory=dict)
+    explicit_deps: List[str] = field(default_factory=list)
+
+@dataclass
 class ParsedTerraform:
     root_dir: Path
     modules: Dict[str, ModuleInfo]
+    resources: Dict[str, ResourceInfo]
     name_index: Dict[str, List[str]]
 
 def parse_directory(root_dir: Path) -> ParsedTerraform:
     root_dir = Path(root_dir)
     parsed_paths: set[Path] = set()
     modules: Dict[str, ModuleInfo] = {}
+    resources: Dict[str, ResourceInfo] = {}
     name_index: Dict[str, List[str]] = {}
     
     def _parse_path(current_path: Path, search_root: Path, is_source_module: bool = False):
@@ -78,6 +91,7 @@ def parse_directory(root_dir: Path) -> ParsedTerraform:
             except Exception:
                 continue
 
+            # Parse modules
             blocks = data.get("module", []) or []
             for b in blocks:
                 if not isinstance(b, dict) or not b:
@@ -109,9 +123,38 @@ def parse_directory(root_dir: Path) -> ParsedTerraform:
                     local_module_path = (tf.parent / source).resolve()
                     if local_module_path.exists() and local_module_path.is_dir():
                         _parse_path(local_module_path, search_root, is_source_module=True)
+            
+            # Parse resources
+            resource_blocks = data.get("resource", []) or []
+            for b in resource_blocks:
+                if not isinstance(b, dict) or not b:
+                    continue
+                resource_type = list(b.keys())[0]
+                resource_instances = b[resource_type] or {}
+                
+                for resource_name, resource_config in resource_instances.items():
+                    if not isinstance(resource_config, dict):
+                        continue
+                    
+                    explicit = _normalize_depends_on(resource_config.get("depends_on", []))
+                    config = {k: v for k, v in resource_config.items() if k not in ("depends_on",)}
+                    
+                    resource_id = f"resource:{rel_dir}:{resource_type}.{resource_name}"
+                    ri = ResourceInfo(
+                        id=resource_id,
+                        name=resource_name,
+                        type=resource_type,
+                        dir=rel_dir,
+                        file_path=str(tf),
+                        file_name=tf.name,
+                        config=config,
+                        explicit_deps=explicit,
+                    )
+                    resources[resource_id] = ri
+                    name_index.setdefault(f"{resource_type}.{resource_name}", []).append(resource_id)
     
     _parse_path(root_dir, root_dir)
-    return ParsedTerraform(root_dir=root_dir, modules=modules, name_index=name_index)
+    return ParsedTerraform(root_dir=root_dir, modules=modules, resources=resources, name_index=name_index)
 
 def _is_local_source(source: str) -> bool:
     """Check if a module source is a local path (not registry or git)."""

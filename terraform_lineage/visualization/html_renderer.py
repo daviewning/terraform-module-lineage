@@ -19,6 +19,8 @@ def render_html(G, output_path: Path, hierarchical: bool, color_by: str = "type"
             shape = "diamond"
         elif attrs.get("kind") == "module":
             shape = "box"
+        elif attrs.get("kind") == "resource":
+            shape = "triangle"  # Use triangle for terraform resources
         else:
             shape = "ellipse"
             
@@ -34,6 +36,8 @@ def render_html(G, output_path: Path, hierarchical: bool, color_by: str = "type"
             font_color = "white"  # White text for Git repository entities
         elif module_type == "registry_module":
             font_color = "white"  # White text for registry modules (brown background)
+        elif module_type == "terraform_resource":
+            font_color = "black"  # Black text for terraform resources (cyan background)
         
         node_options = {
             "label": str(attrs.get("label", nid)),
@@ -487,6 +491,7 @@ def _color_for(attrs: Dict, color_by: str) -> str:
     is_git_module = module_type == "git_module" or "[git module]" in str(attrs.get("label", ""))
     is_git_entity = module_type == "git_entity" or "[git repository]" in str(attrs.get("label", ""))
     is_terraform_file = kind == "terraform_file" or module_type == "terraform_file"
+    is_terraform_resource = kind == "resource" or module_type == "terraform_resource" or "[resource]" in str(attrs.get("label", ""))
     
     if color_by == "environment":
         env = _infer_env(dir_)
@@ -503,6 +508,8 @@ def _color_for(attrs: Dict, color_by: str) -> str:
             return "#ffc107"  # Amber for folders
         elif is_terraform_file:
             return "#9e9e9e"  # Gray for terraform files
+        elif is_terraform_resource:
+            return "#00bcd4"  # Cyan for terraform resources
         elif is_source_module:
             return _darken_color(base_color)
         elif is_registry_module:
@@ -520,6 +527,8 @@ def _color_for(attrs: Dict, color_by: str) -> str:
             return "#ffc107"  # Amber for folders
         elif is_terraform_file:
             return "#9e9e9e"  # Gray for terraform files
+        elif is_terraform_resource:
+            return "#00bcd4"  # Cyan for terraform resources
         elif is_source_module:
             return "#e91e63"  # Pink for source modules
         elif is_registry_module:
@@ -537,6 +546,8 @@ def _color_for(attrs: Dict, color_by: str) -> str:
         return "#ffc107"  # Amber for folders
     elif is_terraform_file:
         return "#9e9e9e"  # Gray for terraform files
+    elif is_terraform_resource:
+        return "#00bcd4"  # Cyan for terraform resources
     elif is_source_module:
         return "#2196f3"  # Blue for source modules (better contrast with black text)
     elif is_registry_module:

@@ -23,7 +23,7 @@ def main():
     gen_parser = subparsers.add_parser('generate', help='Generate visualization')
     gen_parser.add_argument('--input', required=True, type=Path, help='Terraform root directory')
     gen_parser.add_argument('--output', required=True, type=Path, help='Output HTML file path')
-    gen_parser.add_argument('--include-resources', action='store_true', help='Include resource nodes (reserved)')
+    gen_parser.add_argument('--include-resources', action='store_true', help='Include Terraform resource nodes in the visualization')
     gen_parser.add_argument('--layout', default='hierarchical', choices=['hierarchical', 'flat'], help='Layout mode')
     gen_parser.add_argument('--color-by', default='type', choices=['type', 'environment', 'status'], help='Color strategy')
     gen_parser.add_argument('--debug', action='store_true', help='Print full tracebacks on errors')
@@ -41,7 +41,10 @@ def main():
 
             print(Panel.fit(f"[bold]Parsing Terraform directory[/bold]\n{root_dir}"))
             parsed = parse_directory(root_dir)
-            print(f"[dim]Parsed modules: {len(parsed.modules)} (names: {len(parsed.name_index)})[/dim]")
+            if args.include_resources:
+                print(f"[dim]Parsed modules: {len(parsed.modules)}, resources: {len(parsed.resources)} (names: {len(parsed.name_index)})[/dim]")
+            else:
+                print(f"[dim]Parsed modules: {len(parsed.modules)} (names: {len(parsed.name_index)})[/dim]")
 
             print("[bold]Building dependency graph[/bold]")
             if args.debug:

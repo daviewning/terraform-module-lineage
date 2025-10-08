@@ -3,6 +3,7 @@ from __future__ import annotations
 import networkx as nx
 from pathlib import Path
 from typing import Iterable, List
+from urllib.parse import parse_qs, urlparse
 from terraform_lineage.parsing.terraform_parser import ParsedTerraform
 
 def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.DiGraph:
@@ -141,11 +142,45 @@ def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.
             level=level,
         )
     
+    # Add resource entities (if enabled)
+    if include_resources:
+        # First, collect resources and add them to terraform_files
+        for rid, r in parsed.resources.items():
+            if r.file_path and r.file_name:
+                file_id = f"file:{r.file_path}"
+                if file_id in terraform_files:
+                    if 'resources' not in terraform_files[file_id]:
+                        terraform_files[file_id]['resources'] = []
+                    terraform_files[file_id]['resources'].append(rid)
+        
+        # Add resource nodes to the graph
+        for rid, r in parsed.resources.items():
+            resource_label = f"{r.type}.{r.name}\n[resource]"
+            G.add_node(
+                rid,
+                id=rid,
+                kind="resource",
+                module_type="terraform_resource",
+                label=resource_label,
+                name=r.name,
+                type=r.type,
+                dir=r.dir,
+                file_path=r.file_path or "",
+                file_name=r.file_name or "",
+                level=2,  # Same level as modules
+            )
+
     # Add edges from terraform files to their contained modules
     for file_id, file_info in terraform_files.items():
         for module_id in file_info['modules']:
             if G.has_node(module_id):
                 G.add_edge(file_id, module_id, edge_type="contains", style="dashed")
+        
+        # Add edges from terraform files to their contained resources (if enabled)
+        if include_resources and 'resources' in file_info:
+            for resource_id in file_info['resources']:
+                if G.has_node(resource_id):
+                    G.add_edge(file_id, resource_id, edge_type="contains", style="dashed")
 
     # Add edges for explicit depends_on (but not from registry or git modules)
     for mid, m in parsed.modules.items():
@@ -172,6 +207,15 @@ def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.
                     if target_module and target_module.file_path == m.file_path:
                         continue  # Skip - both modules are in the same file
                     G.add_edge(mid, tgt, edge_type="data_dependency", label=f"uses {ref_name}")
+    
+    # Add edges for resource dependencies (if enabled)
+    if include_resources:
+        for rid, r in parsed.resources.items():
+            # Add edges for explicit depends_on from resources
+            targets = _resolve_resource_refs(parsed, r.explicit_deps)
+            for tgt in targets:
+                if G.has_node(tgt):
+                    G.add_edge(rid, tgt, edge_type="depends_on")
     
     # Add registry entities and connect local modules to them
     for mid, m in parsed.modules.items():
@@ -241,6 +285,19 @@ def _resolve_module_like_refs(parsed: ParsedTerraform, refs: Iterable[str]) -> L
         if r.startswith("module."):
             name = r.split(".", 1)[1]
             targets.extend(parsed.name_index.get(name, []))
+    return targets
+
+def _resolve_resource_refs(parsed: ParsedTerraform, refs: Iterable[str]) -> List[str]:
+    targets: List[str] = []
+    for r in refs:
+        r = str(r)
+        if r.startswith("module."):
+            # Resource referencing a module
+            name = r.split(".", 1)[1]
+            targets.extend(parsed.name_index.get(name, []))
+        elif "." in r and not r.startswith("var.") and not r.startswith("local.") and not r.startswith("data."):
+            # Could be a resource reference like "aws_instance.example"
+            targets.extend(parsed.name_index.get(r, []))
     return targets
 
 def find_cycles(G: nx.DiGraph) -> List[List[str]]:
@@ -410,46 +467,131 @@ def _parse_git_source(source: str) -> tuple[str, str]:
     
     return repo_name, path_display
 
+#def _extract_git_url(source: str) -> str:
+#    """Extract and construct the proper GitHub URL from a Terraform Git source."""
+#    if source.startswith("git::"):
+#        git_url = source[5:]  # Remove git:: prefix
+#        
+#        # Split on the path separator "//" but be careful with protocol "://"
+#        repo_url = ""
+#        path = ""
+#        
+#        # For URLs like https://github.com/user/repo.git//path, we need to be careful
+#        if "//" in git_url:
+#            # Find the "//" that's not part of protocol (like https://)
+#            index = 0
+#            while True:
+#                index = git_url.find("//", index)
+#                if index == -1:
+#                    break
+#                # Check if this "//" is not part of protocol (like https://)
+#                if index > 0 and git_url[index-1] != ':':
+#                    repo_url = git_url[:index]
+#                    path = git_url[index+2:]  # Get path after "//"
+#                    break
+#                index += 2
+#        
+#        if not repo_url:
+#            repo_url = git_url
+#        
+#        # Clean up repo URL (remove .git extension)
+#        if repo_url.endswith('.git'):
+#            repo_url = repo_url[:-4]
+#        
+#        # Construct proper GitHub URL with path
+#        if path and ("github.com" in repo_url):
+#            # Convert to GitHub tree URL format
+#            return f"{repo_url}/tree/main/{path}"
+#        elif path and ("gitlab.com" in repo_url):
+#            # Convert to GitLab tree URL format
+#            return f"{repo_url}/-/tree/main/{path}"
+#        else:
+#            # Return base repository URL
+#            return repo_url
+#    else:
+#        return source
+
 def _extract_git_url(source: str) -> str:
-    """Extract and construct the proper GitHub URL from a Terraform Git source."""
-    if source.startswith("git::"):
-        git_url = source[5:]  # Remove git:: prefix
-        
-        # Split on the path separator "//" but be careful with protocol "://"
-        repo_url = ""
-        path = ""
-        
-        # For URLs like https://github.com/user/repo.git//path, we need to be careful
-        if "//" in git_url:
-            # Find the "//" that's not part of protocol (like https://)
-            index = 0
-            while True:
-                index = git_url.find("//", index)
-                if index == -1:
-                    break
-                # Check if this "//" is not part of protocol (like https://)
-                if index > 0 and git_url[index-1] != ':':
-                    repo_url = git_url[:index]
-                    path = git_url[index+2:]  # Get path after "//"
-                    break
-                index += 2
-        
-        if not repo_url:
-            repo_url = git_url
-        
-        # Clean up repo URL (remove .git extension)
-        if repo_url.endswith('.git'):
-            repo_url = repo_url[:-4]
-        
-        # Construct proper GitHub URL with path
-        if path and ("github.com" in repo_url):
-            # Convert to GitHub tree URL format
-            return f"{repo_url}/tree/main/{path}"
-        elif path and ("gitlab.com" in repo_url):
-            # Convert to GitLab tree URL format
-            return f"{repo_url}/-/tree/main/{path}"
-        else:
-            # Return base repository URL
-            return repo_url
-    else:
+    """
+    Normalize a Terraform git module source into a browsable repository URL.
+
+    Accepted input examples:
+        git::https://host/org/repo.git?ref=main
+        git::https://host/org/repo.git//sub/dir?ref=v1.2.3
+        https://host/org/repo.git//sub?ref=feature/foo
+        git::ssh://git@host/org/repo.git//module/path?ref=tag
+        git::https://host/org/repo.git//?ref=main
+
+    Output (GitHub style):
+        https://host/org/repo/tree/<ref>/<sub/dir>
+
+    Output (GitLab style host contains "gitlab'):
+        https://host/org/repo/-/tree/<ref>/<sub/dir>
+
+    Rules:
+        - Default ref is "main' if absent.
+        - If no subpath, still return ... /tree/<ref>
+        - Strips trailing .git
+    """
+    if not source:
+        return ""
+    raw = source
+
+    # Strip leading terraform git prefix
+    if raw.startswith("git::"):
+        raw = raw[5:]
+
+    # Quick exit if it does not look like a git style URL
+    if ".git" not in raw:
         return source
+
+    # Separate query string (?ref =...)
+    if "?" in raw:
+        before_q, q = raw.split("?", 1)
+        qs = parse_qs(q)
+        ref = (qs.get("ref", ["main"])[0] or "main").strip()
+    else:
+        before_q = raw
+        ref = "main"
+
+    # Remove fragment if any
+    before_q = before_q.split("#", 1)[0]
+
+    # Extract repo portion and optional subpath (after .git//)
+    if ".git//" in before_q:
+        repo_part, path_part = before_q.split(".git//", 1)
+        repo_url = repo_part + ".git"
+        sub_path = path_part.strip("/")
+
+        # Handle edge case of explicit // but empty path
+        if sub_path == "":
+            sub_path = ""
+    else:
+        repo_url = before_q
+        sub_path = ""
+
+    repo_url = repo_url.rstrip("/")
+
+    # Browser base (strip .git)
+    if repo_url.endswith(".git"):
+        repo_base = repo_url[:- 4]
+    else:
+        repo_base = repo_url
+
+    # Ensure we can parse host (prepend scheme if missing)
+    parse_target = repo_base
+    if not parse_target.startswith(("http://", "https://")):
+        parse_target = "https://" + parse_target
+    try:
+        host = (urlparse(parse_target).hostname or "").lower()
+    except Exception:
+        host = ""
+
+    # Decide tree segment
+    tree_segment = "/-/tree" if "gitlab" in host else "/tree"
+
+    # Build final URL
+    if sub_path:
+        return f"{repo_base}{tree_segment}/{ref}/{sub_path}"
+    else:
+        return f"{repo_base}{tree_segment}/{ref}"
