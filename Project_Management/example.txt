@@ -13,3 +13,5 @@ python .\tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraf
 
 
 python .\tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap\modules" --output ".\out\lineage.html" --include-resources --layout hierarchical --color-by type
+
+.\tflaenv1\Scripts\activate.ps1; python tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap\modules" --output ".\out\lineage.html" --layout hierarchical --color-by type --include-resources

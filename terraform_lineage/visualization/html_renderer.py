@@ -5,7 +5,7 @@ from typing import Dict
 from pyvis.network import Network
 
 def render_html(G, output_path: Path, hierarchical: bool, color_by: str = "type") -> None:
-    net = Network(height="1000px", width="100%", directed=True, notebook=False)
+    net = Network(height="2000px", width="2600px", directed=True, notebook=False)
     
     # Pre-calculate positions for three-column layout
     folders = [(nid, attrs) for nid, attrs in G.nodes(data=True) if attrs.get("kind") == "folder"]
@@ -54,25 +54,105 @@ def render_html(G, output_path: Path, hierarchical: bool, color_by: str = "type"
             "font": {"face": "Segoe UI", "size": 16, "color": font_color},
         }
         
-        # Add custom positioning for three-column layout
+        # Add hierarchical positioning based on entity type
         if attrs.get("kind") == "folder":
-            # Left column: Folders
-            folder_index = next(i for i, (fid, _) in enumerate(folders) if fid == nid)
-            node_options["x"] = -600
-            node_options["y"] = folder_index * 100 - len(folders) * 50
+            # Separate root folders from subfolders
+            display_path = attrs.get("display_path", "")
+            folder_name = attrs.get("name", "")
+            
+            if "/" not in display_path or display_path in [".", "0-bootstrap", "modules"]:
+                # Root folders - FAR LEFT (furthest left position)
+                root_folders = [(fid, fattrs) for fid, fattrs in folders if 
+                               "/" not in fattrs.get("display_path", "") or 
+                               fattrs.get("display_path", "") in [".", "0-bootstrap", "modules"]]
+                folder_index = next(i for i, (fid, _) in enumerate(root_folders) if fid == nid)
+                node_options["x"] = -1200  # Furthest left position for root folders
+                node_options["y"] = folder_index * 120 - len(root_folders) * 60
+            else:
+                # Subfolders - RIGHT of root folders (clear hierarchy)
+                sub_folders = [(fid, fattrs) for fid, fattrs in folders if 
+                              "/" in fattrs.get("display_path", "") and 
+                              fattrs.get("display_path", "") not in [".", "0-bootstrap", "modules"]]
+                folder_index = next(i for i, (fid, _) in enumerate(sub_folders) if fid == nid)
+                node_options["x"] = -700  # To the right of root folders with 500px gap
+                node_options["y"] = folder_index * 80 - len(sub_folders) * 40
+            
             node_options["physics"] = False
+            node_options["fixed"] = {"x": True, "y": True}
+            
         elif attrs.get("kind") == "terraform_file":
-            # Middle column: Terraform files
+            # Terraform files - third column with much more distinct spacing
             tf_index = next(i for i, (tid, _) in enumerate(terraform_files) if tid == nid)
-            node_options["x"] = 0
-            node_options["y"] = tf_index * 100 - len(terraform_files) * 50
+            node_options["x"] = 100  # Slightly right of center for better spacing
+            node_options["y"] = tf_index * 160 - len(terraform_files) * 80  # Much more spacing: 160px between terraform files
             node_options["physics"] = False
+            node_options["fixed"] = {"x": True, "y": True}
+            
         else:
-            # Right column: Other entities (modules, resources, registry, git)
-            other_index = next(i for i, (oid, _) in enumerate(other_entities) if oid == nid)
-            node_options["x"] = 600
-            node_options["y"] = other_index * 100 - len(other_entities) * 50
+            # Other entities - separate registry modules from registry entities
+            module_type = attrs.get("module_type", "")
+            
+            if module_type == "registry_entity" or "[public registry]" in attrs.get("label", ""):
+                # Public registry entities - furthest right
+                registry_entities = [(oid, oattrs) for oid, oattrs in other_entities if 
+                                   oattrs.get("module_type", "") == "registry_entity" or 
+                                   "[public registry]" in oattrs.get("label", "")]
+                other_index = next(i for i, (oid, _) in enumerate(registry_entities) if oid == nid)
+                node_options["x"] = 1100  # Furthest right for public registry
+                node_options["y"] = other_index * 80 - len(registry_entities) * 40
+            elif module_type == "registry_module" or "[registry]" in attrs.get("label", ""):
+                # Registry modules - right side but before public registry
+                registry_modules = [(oid, oattrs) for oid, oattrs in other_entities if 
+                                  (oattrs.get("module_type", "") == "registry_module" or 
+                                   "[registry]" in oattrs.get("label", "")) and
+                                  not (oattrs.get("module_type", "") == "registry_entity" or 
+                                       "[public registry]" in oattrs.get("label", ""))]
+                other_index = next(i for i, (oid, _) in enumerate(registry_modules) if oid == nid)
+                node_options["x"] = 900  # Registry modules column
+                node_options["y"] = other_index * 80 - len(registry_modules) * 40
+            elif module_type == "git_entity" or "[git repository]" in attrs.get("label", ""):
+                # Git repository entities - right of git modules
+                git_entities = [(oid, oattrs) for oid, oattrs in other_entities if 
+                               oattrs.get("module_type", "") == "git_entity" or 
+                               "[git repository]" in oattrs.get("label", "")]
+                other_index = next(i for i, (oid, _) in enumerate(git_entities) if oid == nid)
+                node_options["x"] = 800  # Right of git modules
+                node_options["y"] = other_index * 80 - len(git_entities) * 40
+            elif module_type == "git_module" or "[git module]" in attrs.get("label", ""):
+                # Git modules - before git repository entities
+                git_modules = [(oid, oattrs) for oid, oattrs in other_entities if 
+                              (oattrs.get("module_type", "") == "git_module" or 
+                               "[git module]" in oattrs.get("label", "")) and
+                              not (oattrs.get("module_type", "") == "git_entity" or 
+                                   "[git repository]" in oattrs.get("label", ""))]
+                other_index = next(i for i, (oid, _) in enumerate(git_modules) if oid == nid)
+                node_options["x"] = 700  # Git modules column
+                node_options["y"] = other_index * 80 - len(git_modules) * 40
+            elif module_type == "terraform_resource" or "[terraform resource]" in attrs.get("label", "") or attrs.get("kind") == "resource":
+                # Terraform resources - extra spacing for maximum readability
+                terraform_resources = [(oid, oattrs) for oid, oattrs in other_entities if 
+                                     (oattrs.get("module_type", "") == "terraform_resource" or 
+                                      "[terraform resource]" in oattrs.get("label", "") or
+                                      oattrs.get("kind") == "resource")]
+                other_index = next(i for i, (oid, _) in enumerate(terraform_resources) if oid == nid)
+                node_options["x"] = 600  # Dedicated column for terraform resources
+                node_options["y"] = other_index * 140 - len(terraform_resources) * 70  # Much more spacing: 140px between resources
+            else:
+                # All other entities (local modules, etc.)
+                remaining_entities = [(oid, oattrs) for oid, oattrs in other_entities if 
+                                    not (oattrs.get("module_type", "") in ["registry_entity", "registry_module", "git_entity", "git_module", "terraform_resource"] or 
+                                         "[registry]" in oattrs.get("label", "") or 
+                                         "[public registry]" in oattrs.get("label", "") or
+                                         "[git module]" in oattrs.get("label", "") or
+                                         "[git repository]" in oattrs.get("label", "") or
+                                         "[terraform resource]" in oattrs.get("label", "") or
+                                         oattrs.get("kind") == "resource")]
+                other_index = next(i for i, (oid, _) in enumerate(remaining_entities) if oid == nid)
+                node_options["x"] = 500  # Left of resource and git/registry columns
+                node_options["y"] = other_index * 80 - len(remaining_entities) * 40
+            
             node_options["physics"] = False
+            node_options["fixed"] = {"x": True, "y": True}
         
         # Add level information for hierarchical layout (fallback)
         if level is not None:
@@ -100,9 +180,90 @@ def render_html(G, output_path: Path, hierarchical: bool, color_by: str = "type"
     output_path = Path(output_path)
     net.write_html(str(output_path))
     
+    # JavaScript positioning disabled - using direct node positioning instead
     # Add JavaScript to ensure nodes stay where dropped and add search functionality
     _add_position_lock_script(output_path)
     _add_search_interface(output_path)
+
+def _force_three_column_layout(output_path: Path, folders, terraform_files, other_entities) -> None:
+    """Force four-column hierarchical layout by directly positioning nodes with JavaScript."""
+    with open(output_path, 'r', encoding='utf-8') as f:
+        html_content = f.read()
+    
+    # Separate root folders from subfolders
+    root_folders = []
+    sub_folders = []
+    
+    for nid, attrs in folders:
+        display_path = attrs.get("display_path", "")
+        # Root folders have no '/' in display_path or are single names
+        if "/" not in display_path or display_path in [".", "0-bootstrap", "modules"]:
+            root_folders.append((nid, attrs))
+        else:
+            sub_folders.append((nid, attrs))
+    
+    # Create positioning data for JavaScript
+    root_folder_positions = {}
+    sub_folder_positions = {}
+    tf_positions = {}
+    other_positions = {}
+    
+    # Column 1: Root folders (leftmost)
+    for i, (nid, attrs) in enumerate(root_folders):
+        root_folder_positions[nid] = {"x": -800, "y": i * 100 - len(root_folders) * 50}
+    
+    # Column 2: Subfolders (middle-left) 
+    for i, (nid, attrs) in enumerate(sub_folders):
+        sub_folder_positions[nid] = {"x": -400, "y": i * 80 - len(sub_folders) * 40}
+    
+    # Column 3: Terraform files (middle)
+    for i, (nid, attrs) in enumerate(terraform_files):
+        tf_positions[nid] = {"x": 0, "y": i * 80 - len(terraform_files) * 40}
+        
+    # Column 4: Other entities (rightmost)
+    for i, (nid, attrs) in enumerate(other_entities):
+        other_positions[nid] = {"x": 600, "y": i * 60 - len(other_entities) * 30}
+    
+    # JavaScript to force positioning
+    force_layout_script = f"""
+    <script>
+    // Force four-column hierarchical layout after network initialization
+    network.on('stabilizationIterationsDone', function() {{
+        console.log('Forcing four-column hierarchical layout...');
+        
+        var rootFolderPositions = {root_folder_positions};
+        var subFolderPositions = {sub_folder_positions};
+        var tfPositions = {tf_positions};
+        var otherPositions = {other_positions};
+        
+        var allPositions = Object.assign({{}}, rootFolderPositions, subFolderPositions, tfPositions, otherPositions);
+        
+        // Update node positions
+        network.setData({{
+            nodes: nodes,
+            edges: edges
+        }});
+        
+        // Move nodes to exact positions
+        for (var nodeId in allPositions) {{
+            network.moveNode(nodeId, allPositions[nodeId].x, allPositions[nodeId].y);
+        }}
+        
+        // Disable physics to prevent movement
+        network.setOptions({{
+            physics: {{ enabled: false }}
+        }});
+        
+        console.log('Four-column hierarchical layout applied!');
+    }});
+    </script>
+    """
+    
+    # Insert before closing body tag
+    html_content = html_content.replace('</body>', force_layout_script + '\n</body>')
+    
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(html_content)
 
 def _add_position_lock_script(output_path: Path) -> None:
     """Add JavaScript to ensure nodes stay where they are dropped."""
@@ -421,7 +582,7 @@ def _add_search_interface(output_path: Path) -> None:
         f.write(html_content)
 
 def _three_column_layout_options() -> str:
-    """Options for three-column layout: folders left, terraform files middle, others right."""
+    """Options for four-column hierarchical layout."""
     return """{
       "physics": {
         "enabled": false
@@ -429,7 +590,9 @@ def _three_column_layout_options() -> str:
       "layout": {
         "hierarchical": {
           "enabled": false
-        }
+        },
+        "randomSeed": 42,
+        "improvedLayout": false
       },
       "interaction": {
         "dragNodes": true,
@@ -439,11 +602,16 @@ def _three_column_layout_options() -> str:
       "nodes": {
         "physics": false,
         "fixed": {
-          "x": false,
-          "y": false
-        }
+          "x": true,
+          "y": true
+        },
+        "chosen": false
       },
-      "edges": { "arrows": { "to": { "enabled": true } }, "smooth": { "type": "cubicBezier" } }
+      "edges": { 
+        "arrows": { "to": { "enabled": true } }, 
+        "smooth": { "type": "cubicBezier" },
+        "physics": false
+      }
     }"""
 
 def _net_options(hierarchical: bool) -> str:
