@@ -5,7 +5,7 @@ from typing import Dict
 from pyvis.network import Network
 
 def render_html(G, output_path: Path, hierarchical: bool, color_by: str = "type") -> None:
-    net = Network(height="2000px", width="2600px", directed=True, notebook=False)
+    net = Network(height="2000px", width="2600px", directed=True, notebook=False, cdn_resources='remote')
     
     # Pre-calculate positions for three-column layout
     folders = [(nid, attrs) for nid, attrs in G.nodes(data=True) if attrs.get("kind") == "folder"]
@@ -179,6 +179,9 @@ def render_html(G, output_path: Path, hierarchical: bool, color_by: str = "type"
 
     output_path = Path(output_path)
     net.write_html(str(output_path))
+    
+    # Clean up HTML for cross-platform compatibility
+    _clean_html_for_cross_platform(output_path)
     
     # JavaScript positioning disabled - using direct node positioning instead
     # Add JavaScript to ensure nodes stay where dropped and add search functionality
@@ -859,5 +862,33 @@ def _tooltip(attrs: Dict) -> str:
         vscode_url = _build_vscode_url(d)
         return f'<a href="{vscode_url}" style="color: #0066cc; text-decoration: underline; font-weight: bold;">{d}</a>'
     
-    # Fallback to module name if no path available
-    return attrs.get("name", "")
+    return file_path or ""
+
+def _clean_html_for_cross_platform(output_path: Path) -> None:
+    """Remove local script references and ensure cross-platform compatibility."""
+    with open(output_path, 'r', encoding='utf-8') as f:
+        html_content = f.read()
+    
+    # Remove any local script references that might cause blank pages on macOS
+    html_content = html_content.replace('<script src="lib/bindings/utils.js"></script>', '')
+    
+    # Ensure all CDN resources use HTTPS
+    html_content = html_content.replace('http://cdn.', 'https://cdn.')
+    html_content = html_content.replace('http://cdnjs.', 'https://cdnjs.')
+    
+    # Add error handling for CDN failures
+    error_handling_script = '''
+    <script>
+    window.addEventListener('error', function(e) {
+        if (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK') {
+            console.warn('Failed to load resource:', e.target.src || e.target.href);
+        }
+    });
+    </script>
+    '''
+    
+    # Insert error handling before closing head tag
+    html_content = html_content.replace('</head>', error_handling_script + '</head>')
+    
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(html_content)
