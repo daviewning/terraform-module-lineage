@@ -78,7 +78,7 @@ def render_html(G, output_path: Path, hierarchical: bool, color_by: str = "type"
                 node_options["y"] = folder_index * 80 - len(sub_folders) * 40
             
             node_options["physics"] = False
-            node_options["fixed"] = {"x": True, "y": True}
+            # Don't fix folder nodes - allow them to be moved manually
             
         elif attrs.get("kind") == "terraform_file":
             # Terraform files - third column with much more distinct spacing
@@ -86,7 +86,7 @@ def render_html(G, output_path: Path, hierarchical: bool, color_by: str = "type"
             node_options["x"] = 100  # Slightly right of center for better spacing
             node_options["y"] = tf_index * 160 - len(terraform_files) * 80  # Much more spacing: 160px between terraform files
             node_options["physics"] = False
-            node_options["fixed"] = {"x": True, "y": True}
+            # Don't fix terraform file nodes - allow them to be moved manually
             
         else:
             # Other entities - separate registry modules from registry entities
@@ -152,7 +152,7 @@ def render_html(G, output_path: Path, hierarchical: bool, color_by: str = "type"
                 node_options["y"] = other_index * 80 - len(remaining_entities) * 40
             
             node_options["physics"] = False
-            node_options["fixed"] = {"x": True, "y": True}
+            # Don't fix other entity nodes - allow them to be moved manually
         
         # Add level information for hierarchical layout (fallback)
         if level is not None:
@@ -269,37 +269,95 @@ def _force_three_column_layout(output_path: Path, folders, terraform_files, othe
         f.write(html_content)
 
 def _add_position_lock_script(output_path: Path) -> None:
-    """Add JavaScript to ensure nodes stay where they are dropped."""
+    """Add JavaScript to ensure nodes stay where they are dropped and persist positions across page reloads."""
     # Read the generated HTML
     with open(output_path, 'r', encoding='utf-8') as f:
         html_content = f.read()
     
-    # JavaScript to handle both hierarchical and flat layouts
+    # JavaScript to handle persistent node positioning with localStorage
     position_lock_script = """
     <script>
+    // Generate a unique key based on the current page URL and content
+    var storageKey = 'terraform_lineage_positions_' + window.location.pathname.replace(/[^a-zA-Z0-9]/g, '_');
+    
+    // Load saved positions from localStorage
+    function loadSavedPositions() {
+        try {
+            var saved = localStorage.getItem(storageKey);
+            return saved ? JSON.parse(saved) : {};
+        } catch (e) {
+            console.warn('Failed to load saved positions:', e);
+            return {};
+        }
+    }
+    
+    // Save positions to localStorage
+    function savePositions(positions) {
+        try {
+            var positionCount = Object.keys(positions).length;
+            localStorage.setItem(storageKey, JSON.stringify(positions));
+            console.log('Successfully saved', positionCount, 'node positions to localStorage with key:', storageKey);
+            
+            // Verify the save worked
+            var testLoad = localStorage.getItem(storageKey);
+            if (testLoad) {
+                console.log('Verification: positions successfully stored');
+            } else {
+                console.error('Verification failed: positions not found in localStorage');
+            }
+        } catch (e) {
+            console.error('Failed to save positions:', e);
+        }
+    }
+    
+    // Apply saved positions to nodes
+    function applySavedPositions() {
+        var savedPositions = loadSavedPositions();
+        if (Object.keys(savedPositions).length > 0) {
+            console.log('Applying saved positions for', Object.keys(savedPositions).length, 'nodes');
+            
+            // Get all current node IDs to check what exists
+            var allNodes = nodes.get();
+            var existingNodeIds = new Set(allNodes.map(function(node) { return node.id; }));
+            
+            var nodeUpdates = [];
+            for (var nodeId in savedPositions) {
+                if (existingNodeIds.has(nodeId)) {
+                    nodeUpdates.push({
+                        id: nodeId,
+                        x: savedPositions[nodeId].x,
+                        y: savedPositions[nodeId].y,
+                        physics: false
+                    });
+                    console.log('Restoring position for node:', nodeId, 'to x:', savedPositions[nodeId].x, 'y:', savedPositions[nodeId].y);
+                } else {
+                    console.log('Skipping saved position for non-existent node:', nodeId);
+                }
+            }
+            
+            if (nodeUpdates.length > 0) {
+                nodes.update(nodeUpdates);
+                console.log('Successfully applied', nodeUpdates.length, 'saved positions');
+                
+                // Force network to redraw with new positions
+                network.redraw();
+            }
+        } else {
+            console.log('No saved positions found - using default layout');
+        }
+    }
+    
+    // Apply saved positions immediately after network creation (before stabilization)
+    setTimeout(function() {
+        console.log('Applying saved positions immediately to override defaults');
+        applySavedPositions();
+    }, 50);
+    
     // Wait for network to be stabilized
     network.on('stabilizationIterationsDone', function() {
-        console.log('Network stabilized - enabling free movement');
+        console.log('Network stabilized - ensuring saved positions and free movement');
         
-        // Get current positions of all nodes
-        var allPositions = network.getPositions();
-        
-        // Update all nodes to be freely movable
-        var allNodeIds = Object.keys(allPositions);
-        var nodeUpdates = allNodeIds.map(function(nodeId) {
-            return {
-                id: nodeId,
-                x: allPositions[nodeId].x,
-                y: allPositions[nodeId].y,
-                physics: false,
-                fixed: false
-            };
-        });
-        
-        // Apply updates to all nodes
-        nodes.update(nodeUpdates);
-        
-        // Disable physics and hierarchical layout (if present)
+        // Disable physics first to prevent interference
         network.setOptions({
             physics: { enabled: false },
             layout: { hierarchical: { enabled: false } },
@@ -309,17 +367,35 @@ def _add_position_lock_script(output_path: Path) -> None:
                 zoomView: true
             }
         });
+        
+        // Apply saved positions again to ensure they override any stabilization changes
+        setTimeout(function() {
+            applySavedPositions();
+            
+            // Make all nodes movable
+            var allPositions = network.getPositions();
+            var allNodeIds = Object.keys(allPositions);
+            var nodeUpdates = allNodeIds.map(function(nodeId) {
+                return {
+                    id: nodeId,
+                    physics: false
+                };
+            });
+            
+            nodes.update(nodeUpdates);
+            console.log('Final: All nodes are freely movable with saved positions applied');
+        }, 100);
     });
     
-    // Handle dragging to keep nodes where dropped
+    // Handle dragging to keep nodes where dropped and save positions permanently
     network.on('dragEnd', function(params) {
         if (params.nodes.length > 0) {
-            console.log('Drag ended - locking positions');
+            console.log('Drag ended - permanently saving positions');
             
             // Get the final positions of dragged nodes
             var positions = network.getPositions(params.nodes);
             
-            // Update nodes to stay at their new positions
+            // Update nodes to stay at their new positions permanently
             var nodeUpdates = params.nodes.map(function(nodeId) {
                 return {
                     id: nodeId,
@@ -332,12 +408,33 @@ def _add_position_lock_script(output_path: Path) -> None:
             
             // Apply the updates to keep nodes in place
             nodes.update(nodeUpdates);
+            
+            // Save ALL current positions to localStorage (not just moved ones)
+            var allPositions = network.getPositions();
+            savePositions(allPositions);
+            
+            console.log('All positions saved permanently');
+        }
+    });
+    
+    // Also save positions when nodes are moved by any other means
+    network.on('afterDrawing', function() {
+        // Throttle saves to avoid excessive localStorage writes
+        if (!window.lastPositionSave || Date.now() - window.lastPositionSave > 1000) {
+            var allPositions = network.getPositions();
+            if (Object.keys(allPositions).length > 0) {
+                savePositions(allPositions);
+                window.lastPositionSave = Date.now();
+            }
         }
     });
     
     // Fallback: Force override after delay if stabilization doesn't trigger
     setTimeout(function() {
-        console.log('Timeout override - ensuring free movement');
+        console.log('Timeout override - ensuring free movement and applying saved positions');
+        
+        // Apply saved positions first
+        applySavedPositions();
         
         var allPositions = network.getPositions();
         var allNodeIds = Object.keys(allPositions);
@@ -366,6 +463,14 @@ def _add_position_lock_script(output_path: Path) -> None:
             });
         }
     }, 2000);
+    
+    // Auto-save positions periodically to ensure persistence
+    setInterval(function() {
+        var allPositions = network.getPositions();
+        if (Object.keys(allPositions).length > 0) {
+            savePositions(allPositions);
+        }
+    }, 5000); // Save every 5 seconds to ensure no position changes are lost
     </script>
     """
     
