@@ -4,6 +4,7 @@ import sys
 import traceback
 import argparse
 from pathlib import Path
+from datetime import datetime
 from rich import print
 from rich.panel import Panel
 
@@ -37,7 +38,16 @@ def main():
     if args.command == 'generate':
         try:
             root_dir = args.input.resolve()
-            out_path = args.output.resolve()
+            
+            # Add timestamp to output filename
+            original_output = args.output.resolve()
+            timestamp = datetime.now().strftime("%H%M%S%d%m%Y")
+            
+            # Insert timestamp before file extension
+            stem = original_output.stem
+            suffix = original_output.suffix
+            timestamped_name = f"{stem}_{timestamp}{suffix}"
+            out_path = original_output.parent / timestamped_name
 
             print(Panel.fit(f"[bold]Parsing Terraform directory[/bold]\n{root_dir}"))
             parsed = parse_directory(root_dir)

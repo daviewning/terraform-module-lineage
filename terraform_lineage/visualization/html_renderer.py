@@ -537,18 +537,123 @@ def _add_search_interface(output_path: Path) -> None:
     .clear-button:hover {
         background: #d32f2f;
     }
+    
+    .spacing-button {
+        margin-left: 8px;
+        padding: 8px 12px;
+        background: #2196F3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .spacing-button:hover {
+        background: #1976D2;
+    }
+    
+    .spacing-decrease-button {
+        margin-left: 8px;
+        padding: 8px 12px;
+        background: #FF9800;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .spacing-decrease-button:hover {
+        background: #F57C00;
+    }
+    
+    .vertical-spacing-button {
+        margin-left: 8px;
+        padding: 8px 12px;
+        background: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .vertical-spacing-button:hover {
+        background: #388E3C;
+    }
+    
+    .resource-types-container {
+        margin-top: 12px;
+        padding: 8px;
+        background: #f8f9fa;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        max-height: 120px;
+        overflow-y: auto;
+    }
+    
+    .resource-types-title {
+        font-size: 12px;
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 6px;
+        display: block;
+    }
+    
+    .resource-type-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+    
+    .resource-type-tag {
+        display: inline-block;
+        padding: 2px 6px;
+        background: #e3f2fd;
+        border: 1px solid #2196F3;
+        border-radius: 12px;
+        font-size: 10px;
+        color: #1976D2;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .resource-type-tag:hover {
+        background: #2196F3;
+        color: white;
+        transform: scale(1.05);
+    }
+    
+    .resource-type-tag.filtered {
+        background: #ffeb3b;
+        border-color: #ff9800;
+        color: #e65100;
+    }
     </style>
     
     <div class="search-container">
         <input type="text" id="searchInput" class="search-input" placeholder="Search entities..." />
         <button id="clearButton" class="clear-button">Clear</button>
+        <button id="spacingButton" class="spacing-button"><--></button>
+        <button id="spacingDecreaseButton" class="spacing-decrease-button">>--<</button>
+        <button id="verticalSpacingButton" class="vertical-spacing-button">^</button>
         <div id="searchResults" class="search-results"></div>
+        <div id="resourceTypesContainer" class="resource-types-container">
+            <span class="resource-types-title">Terraform Resource Types:</span>
+            <div id="resourceTypeTags" class="resource-type-tags"></div>
+        </div>
     </div>
     
     <script>
     // Search functionality
     let originalNodeColors = {};
     let originalNodeBorders = {};
+    let originalEdgeColors = {};
+    let originalEdgeWidths = {};
     
     // Store original colors when network is ready
     network.once('afterDrawing', function() {
@@ -556,7 +661,65 @@ def _add_search_interface(output_path: Path) -> None:
             originalNodeColors[node.id] = node.color;
             originalNodeBorders[node.id] = node.borderWidth || 2;
         });
+        edges.forEach(function(edge) {
+            originalEdgeColors[edge.id] = edge.color;
+            originalEdgeWidths[edge.id] = edge.width || 1;
+        });
+        
+        // Extract and display resource types
+        extractAndDisplayResourceTypes();
     });
+    
+    function extractAndDisplayResourceTypes() {
+        let resourceTypes = new Set();
+        
+        // Extract resource types from terraform resource nodes
+        nodes.forEach(function(node) {
+            // Look for terraform resource nodes by checking if label contains "[terraform resource]"
+            let label = node.label || node.id;
+            if (label.includes('[terraform resource]')) {
+                // Extract resource type from the first part of the label
+                // Format is "resource_type.resource_name\\n[terraform resource]"
+                let lines = label.split('\\n');
+                if (lines.length > 0) {
+                    let resourceLine = lines[0];
+                    // Extract the part before the first dot
+                    let match = resourceLine.match(/^([a-zA-Z0-9_]+)\\./);
+                    if (match) {
+                        resourceTypes.add(match[1]);
+                    }
+                }
+            }
+        });
+        
+        // Display resource types as clickable tags
+        const container = document.getElementById('resourceTypeTags');
+        const sortedTypes = Array.from(resourceTypes).sort();
+        
+        if (sortedTypes.length === 0) {
+            container.innerHTML = '<span style="color: #666; font-style: italic;">No terraform resources found</span>';
+            return;
+        }
+        
+        container.innerHTML = '';
+        sortedTypes.forEach(function(type) {
+            const tag = document.createElement('span');
+            tag.className = 'resource-type-tag';
+            tag.textContent = type;
+            tag.addEventListener('click', function() {
+                // Search for this resource type
+                document.getElementById('searchInput').value = type;
+                searchEntities(type);
+                
+                // Highlight this tag as filtered
+                document.querySelectorAll('.resource-type-tag').forEach(t => t.classList.remove('filtered'));
+                tag.classList.add('filtered');
+            });
+            container.appendChild(tag);
+        });
+        
+        console.log(`Found ${sortedTypes.length} terraform resource types:`, sortedTypes);
+    }
     
     function searchEntities(searchTerm) {
         if (!searchTerm) {
@@ -566,10 +729,11 @@ def _add_search_interface(output_path: Path) -> None:
         
         searchTerm = searchTerm.toLowerCase();
         let matchedNodes = [];
+        let connectedNodes = new Set();
+        let connectedEdges = new Set();
         let totalNodes = 0;
         
-        // Reset all nodes to original appearance
-        let nodeUpdates = [];
+        // First, find all matched nodes
         nodes.forEach(function(node) {
             totalNodes++;
             let label = (node.label || '').toLowerCase();
@@ -577,22 +741,63 @@ def _add_search_interface(output_path: Path) -> None:
             
             if (isMatch) {
                 matchedNodes.push(node);
-                // Highlight matched nodes
+                connectedNodes.add(node.id);
+            }
+        });
+        
+        // Find all nodes connected to matched nodes and their edges
+        if (matchedNodes.length > 0) {
+            matchedNodes.forEach(function(matchedNode) {
+                // Get all edges connected to this node
+                let connectedEdgeIds = network.getConnectedEdges(matchedNode.id);
+                connectedEdgeIds.forEach(function(edgeId) {
+                    connectedEdges.add(edgeId);
+                    
+                    // Get the other nodes connected by this edge
+                    let connectedNodeIds = network.getConnectedNodes(matchedNode.id);
+                    connectedNodeIds.forEach(function(nodeId) {
+                        connectedNodes.add(nodeId);
+                    });
+                });
+            });
+        }
+        
+        // Update node appearances
+        let nodeUpdates = [];
+        nodes.forEach(function(node) {
+            if (matchedNodes.some(m => m.id === node.id)) {
+                // Primary matched nodes - bright highlight
                 nodeUpdates.push({
                     id: node.id,
                     color: {
                         background: '#ffeb3b',  // Yellow highlight
                         border: '#ff9800'      // Orange border
                     },
-                    borderWidth: 4,
+                    borderWidth: 5,
                     font: {
                         color: '#000000',
                         size: 18,
+                        face: 'Segoe UI',
+                        bold: true
+                    }
+                });
+            } else if (connectedNodes.has(node.id)) {
+                // Connected nodes - secondary highlight
+                nodeUpdates.push({
+                    id: node.id,
+                    color: {
+                        background: '#e1f5fe',  // Light blue highlight
+                        border: '#0288d1'      // Blue border
+                    },
+                    borderWidth: 3,
+                    font: {
+                        color: '#000000',
+                        size: 17,
                         face: 'Segoe UI'
                     }
                 });
             } else {
-                // Dim non-matched nodes
+                // Dim non-connected nodes
                 nodeUpdates.push({
                     id: node.id,
                     color: {
@@ -609,24 +814,52 @@ def _add_search_interface(output_path: Path) -> None:
             }
         });
         
-        // Update all nodes
+        // Update edges
+        let edgeUpdates = [];
+        edges.forEach(function(edge) {
+            if (connectedEdges.has(edge.id)) {
+                // Highlight connected edges
+                edgeUpdates.push({
+                    id: edge.id,
+                    color: {
+                        color: '#ff5722',     // Red-orange for highlighted edges
+                        highlight: '#d84315'
+                    },
+                    width: 4,
+                    shadow: true
+                });
+            } else {
+                // Dim other edges
+                edgeUpdates.push({
+                    id: edge.id,
+                    color: {
+                        color: '#e0e0e0',     // Light gray for dimmed edges
+                        highlight: '#bdbdbd'
+                    },
+                    width: 1,
+                    shadow: false
+                });
+            }
+        });
+        
+        // Apply updates
         nodes.update(nodeUpdates);
+        edges.update(edgeUpdates);
         
         // Update search results
         const resultsDiv = document.getElementById('searchResults');
         if (matchedNodes.length > 0) {
-            resultsDiv.textContent = `Found ${matchedNodes.length} of ${totalNodes} entities`;
+            const connectedCount = connectedNodes.size - matchedNodes.length;
+            resultsDiv.innerHTML = `Found <strong>${matchedNodes.length}</strong> matches<br/>+ <strong>${connectedCount}</strong> connected entities<br/>+ <strong>${connectedEdges.size}</strong> highlighted edges`;
             
             // Focus on first match if available
-            if (matchedNodes.length > 0) {
-                network.focus(matchedNodes[0].id, {
-                    scale: 1.2,
-                    animation: {
-                        duration: 500,
-                        easingFunction: 'easeInOutQuart'
-                    }
-                });
-            }
+            network.focus(matchedNodes[0].id, {
+                scale: 1.0,
+                animation: {
+                    duration: 500,
+                    easingFunction: 'easeInOutQuart'
+                }
+            });
         } else {
             resultsDiv.textContent = `No matches found for "${searchTerm}"`;
         }
@@ -648,12 +881,28 @@ def _add_search_interface(output_path: Path) -> None:
             });
         });
         
-        // Update all nodes
+        // Reset all edges to original appearance
+        let edgeUpdates = [];
+        edges.forEach(function(edge) {
+            edgeUpdates.push({
+                id: edge.id,
+                color: originalEdgeColors[edge.id] || edge.color,
+                width: originalEdgeWidths[edge.id] || 1
+            });
+        });
+        
+        // Update all nodes and edges
         nodes.update(nodeUpdates);
+        edges.update(edgeUpdates);
         
         // Clear search results
         document.getElementById('searchResults').textContent = '';
         document.getElementById('searchInput').value = '';
+        
+        // Clear resource type tag highlighting
+        document.querySelectorAll('.resource-type-tag').forEach(function(tag) {
+            tag.classList.remove('filtered');
+        });
         
         // Reset view
         network.fit({
@@ -664,6 +913,136 @@ def _add_search_interface(output_path: Path) -> None:
         });
     }
     
+    // Node spacing functionality
+    let currentLevelSeparation = 200; // Horizontal spacing between levels (columns)
+    let currentNodeSpacing = 120; // Vertical spacing between nodes
+    let currentTreeSpacing = 180; // Vertical spacing between trees
+    const minLevelSeparation = 100; // Minimum horizontal spacing
+    const minNodeSpacing = 80; // Minimum vertical spacing
+    let layoutMode = 'hierarchical'; // Track current layout mode
+    let storedPositions = {}; // Store manual positions
+    
+    function increaseSpacing() {
+        // Increase only horizontal spacing by 50% each time
+        currentLevelSeparation = Math.round(currentLevelSeparation * 1.5);
+        updateLayout();
+        console.log(`Horizontal spacing increased - Level separation: ${currentLevelSeparation}px`);
+    }
+    
+    function decreaseSpacing() {
+        // Decrease only horizontal spacing by 33% each time (inverse of 1.5x)
+        let newSeparation = Math.round(currentLevelSeparation / 1.5);
+        
+        // Don't go below minimum spacing
+        if (newSeparation >= minLevelSeparation) {
+            currentLevelSeparation = newSeparation;
+            updateLayout();
+            console.log(`Horizontal spacing decreased - Level separation: ${currentLevelSeparation}px`);
+        } else {
+            console.log(`Cannot decrease further - minimum spacing is ${minLevelSeparation}px`);
+        }
+    }
+    
+    function increaseVerticalSpacing() {
+        // Increase vertical spacing by 50% each time
+        currentNodeSpacing = Math.round(currentNodeSpacing * 1.5);
+        currentTreeSpacing = Math.round(currentTreeSpacing * 1.5);
+        updateLayout();
+        console.log(`Vertical spacing increased - Node spacing: ${currentNodeSpacing}px, Tree spacing: ${currentTreeSpacing}px`);
+    }
+    
+    function updateLayout() {
+        if (layoutMode === 'hierarchical') {
+            // First time - apply hierarchical layout with new spacing
+            network.setOptions({
+                layout: {
+                    hierarchical: {
+                        enabled: true,
+                        levelSeparation: currentLevelSeparation,
+                        nodeSpacing: currentNodeSpacing,
+                        treeSpacing: currentTreeSpacing,
+                        direction: "LR",
+                        sortMethod: "directed",
+                        shakeTowards: "roots"
+                    }
+                },
+                physics: {
+                    enabled: true,
+                    stabilization: {
+                        enabled: true,
+                        iterations: 100
+                    }
+                },
+                interaction: {
+                    dragNodes: true,
+                    dragView: true,
+                    zoomView: true
+                }
+            });
+            
+            // After stabilization, switch to manual mode and store positions
+            setTimeout(function() {
+                // Store the new hierarchical positions
+                storedPositions = network.getPositions();
+                
+                // Switch to manual positioning mode
+                layoutMode = 'manual';
+                network.setOptions({
+                    layout: { hierarchical: { enabled: false } },
+                    physics: { enabled: false },
+                    edges: {
+                        smooth: {
+                            enabled: true,
+                            type: 'straightCross',
+                            forceDirection: 'horizontal',
+                            roundness: 0
+                        }
+                    }
+                });
+                
+                console.log('Switched to manual positioning mode. Nodes can now be dragged freely.');
+            }, 1500);
+            
+        } else {
+            // Manual mode - just apply spacing transformation to existing positions
+            const currentPositions = network.getPositions();
+            const nodeUpdates = [];
+            
+            // Calculate spacing multipliers
+            const horizontalMultiplier = currentLevelSeparation / 200; // Based on original 200px
+            const verticalMultiplier = currentNodeSpacing / 120; // Based on original 120px
+            
+            // Update positions proportionally
+            Object.keys(currentPositions).forEach(nodeId => {
+                const pos = currentPositions[nodeId];
+                nodeUpdates.push({
+                    id: nodeId,
+                    x: pos.x * horizontalMultiplier,
+                    y: pos.y * verticalMultiplier,
+                    physics: false,
+                    fixed: false
+                });
+            });
+            
+            // Update node positions
+            nodes.update(nodeUpdates);
+            
+            // Ensure edges remain straight
+            network.setOptions({
+                edges: {
+                    smooth: {
+                        enabled: true,
+                        type: 'straightCross',
+                        forceDirection: 'horizontal',
+                        roundness: 0
+                    }
+                }
+            });
+            
+            console.log('Applied spacing transformation to existing positions');
+        }
+    }
+    
     // Event listeners
     document.getElementById('searchInput').addEventListener('input', function(e) {
         searchEntities(e.target.value);
@@ -671,6 +1050,28 @@ def _add_search_interface(output_path: Path) -> None:
     
     document.getElementById('clearButton').addEventListener('click', function() {
         clearSearch();
+    });
+    
+    document.getElementById('spacingButton').addEventListener('click', function() {
+        increaseSpacing();
+    });
+    
+    document.getElementById('spacingDecreaseButton').addEventListener('click', function() {
+        decreaseSpacing();
+    });
+    
+    document.getElementById('verticalSpacingButton').addEventListener('click', function() {
+        increaseVerticalSpacing();
+    });
+    
+    // Track manual node dragging
+    network.on('dragEnd', function(params) {
+        if (params.nodes.length > 0 && layoutMode === 'manual') {
+            // Update stored positions when nodes are manually moved
+            const newPositions = network.getPositions(params.nodes);
+            Object.assign(storedPositions, newPositions);
+            console.log('Updated stored positions for dragged nodes');
+        }
     });
     
     // Allow Enter key to trigger search
