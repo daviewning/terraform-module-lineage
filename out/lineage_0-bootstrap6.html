@@ -1,0 +1,1091 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script>function neighbourhoodHighlight(params) {
+  // console.log("in nieghbourhoodhighlight");
+  allNodes = nodes.get({ returnType: "Object" });
+  // originalNodes = JSON.parse(JSON.stringify(allNodes));
+  // if something is selected:
+  if (params.nodes.length > 0) {
+    highlightActive = true;
+    var i, j;
+    var selectedNode = params.nodes[0];
+    var degrees = 2;
+
+    // mark all nodes as hard to read.
+    for (let nodeId in allNodes) {
+      // nodeColors[nodeId] = allNodes[nodeId].color;
+      allNodes[nodeId].color = "rgba(200,200,200,0.5)";
+      if (allNodes[nodeId].hiddenLabel === undefined) {
+        allNodes[nodeId].hiddenLabel = allNodes[nodeId].label;
+        allNodes[nodeId].label = undefined;
+      }
+    }
+    var connectedNodes = network.getConnectedNodes(selectedNode);
+    var allConnectedNodes = [];
+
+    // get the second degree nodes
+    for (i = 1; i < degrees; i++) {
+      for (j = 0; j < connectedNodes.length; j++) {
+        allConnectedNodes = allConnectedNodes.concat(
+          network.getConnectedNodes(connectedNodes[j])
+        );
+      }
+    }
+
+    // all second degree nodes get a different color and their label back
+    for (i = 0; i < allConnectedNodes.length; i++) {
+      // allNodes[allConnectedNodes[i]].color = "pink";
+      allNodes[allConnectedNodes[i]].color = "rgba(150,150,150,0.75)";
+      if (allNodes[allConnectedNodes[i]].hiddenLabel !== undefined) {
+        allNodes[allConnectedNodes[i]].label =
+          allNodes[allConnectedNodes[i]].hiddenLabel;
+        allNodes[allConnectedNodes[i]].hiddenLabel = undefined;
+      }
+    }
+
+    // all first degree nodes get their own color and their label back
+    for (i = 0; i < connectedNodes.length; i++) {
+      // allNodes[connectedNodes[i]].color = undefined;
+      allNodes[connectedNodes[i]].color = nodeColors[connectedNodes[i]];
+      if (allNodes[connectedNodes[i]].hiddenLabel !== undefined) {
+        allNodes[connectedNodes[i]].label =
+          allNodes[connectedNodes[i]].hiddenLabel;
+        allNodes[connectedNodes[i]].hiddenLabel = undefined;
+      }
+    }
+
+    // the main node gets its own color and its label back.
+    // allNodes[selectedNode].color = undefined;
+    allNodes[selectedNode].color = nodeColors[selectedNode];
+    if (allNodes[selectedNode].hiddenLabel !== undefined) {
+      allNodes[selectedNode].label = allNodes[selectedNode].hiddenLabel;
+      allNodes[selectedNode].hiddenLabel = undefined;
+    }
+  } else if (highlightActive === true) {
+    // console.log("highlightActive was true");
+    // reset all nodes
+    for (let nodeId in allNodes) {
+      // allNodes[nodeId].color = "purple";
+      allNodes[nodeId].color = nodeColors[nodeId];
+      // delete allNodes[nodeId].color;
+      if (allNodes[nodeId].hiddenLabel !== undefined) {
+        allNodes[nodeId].label = allNodes[nodeId].hiddenLabel;
+        allNodes[nodeId].hiddenLabel = undefined;
+      }
+    }
+    highlightActive = false;
+  }
+
+  // transform the object into an array
+  var updateArray = [];
+  if (params.nodes.length > 0) {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        // console.log(allNodes[nodeId]);
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  } else {
+    // console.log("Nothing was selected");
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        // console.log(allNodes[nodeId]);
+        // allNodes[nodeId].color = {};
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  }
+}
+
+function filterHighlight(params) {
+  allNodes = nodes.get({ returnType: "Object" });
+  // if something is selected:
+  if (params.nodes.length > 0) {
+    filterActive = true;
+    let selectedNodes = params.nodes;
+
+    // hiding all nodes and saving the label
+    for (let nodeId in allNodes) {
+      allNodes[nodeId].hidden = true;
+      if (allNodes[nodeId].savedLabel === undefined) {
+        allNodes[nodeId].savedLabel = allNodes[nodeId].label;
+        allNodes[nodeId].label = undefined;
+      }
+    }
+
+    for (let i=0; i < selectedNodes.length; i++) {
+      allNodes[selectedNodes[i]].hidden = false;
+      if (allNodes[selectedNodes[i]].savedLabel !== undefined) {
+        allNodes[selectedNodes[i]].label = allNodes[selectedNodes[i]].savedLabel;
+        allNodes[selectedNodes[i]].savedLabel = undefined;
+      }
+    }
+
+  } else if (filterActive === true) {
+    // reset all nodes
+    for (let nodeId in allNodes) {
+      allNodes[nodeId].hidden = false;
+      if (allNodes[nodeId].savedLabel !== undefined) {
+        allNodes[nodeId].label = allNodes[nodeId].savedLabel;
+        allNodes[nodeId].savedLabel = undefined;
+      }
+    }
+    filterActive = false;
+  }
+
+  // transform the object into an array
+  var updateArray = [];
+  if (params.nodes.length > 0) {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  } else {
+    for (let nodeId in allNodes) {
+      if (allNodes.hasOwnProperty(nodeId)) {
+        updateArray.push(allNodes[nodeId]);
+      }
+    }
+    nodes.update(updateArray);
+  }
+}
+
+function selectNode(nodes) {
+  network.selectNodes(nodes);
+  neighbourhoodHighlight({ nodes: nodes });
+  return nodes;
+}
+
+function selectNodes(nodes) {
+  network.selectNodes(nodes);
+  filterHighlight({nodes: nodes});
+  return nodes;
+}
+
+function highlightFilter(filter) {
+  let selectedNodes = []
+  let selectedProp = filter['property']
+  if (filter['item'] === 'node') {
+    let allNodes = nodes.get({ returnType: "Object" });
+    for (let nodeId in allNodes) {
+      if (allNodes[nodeId][selectedProp] && filter['value'].includes((allNodes[nodeId][selectedProp]).toString())) {
+        selectedNodes.push(nodeId)
+      }
+    }
+  }
+  else if (filter['item'] === 'edge'){
+    let allEdges = edges.get({returnType: 'object'});
+    // check if the selected property exists for selected edge and select the nodes connected to the edge
+    for (let edge in allEdges) {
+      if (allEdges[edge][selectedProp] && filter['value'].includes((allEdges[edge][selectedProp]).toString())) {
+        selectedNodes.push(allEdges[edge]['from'])
+        selectedNodes.push(allEdges[edge]['to'])
+      }
+    }
+  }
+  selectNodes(selectedNodes)
+}</script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+            
+            
+            
+            
+            
+
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 2600px;
+                 height: 2000px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+             /* position absolute is important and the container has to be relative or absolute as well. */
+          div.popup {
+                 position:absolute;
+                 top:0px;
+                 left:0px;
+                 display:none;
+                 background-color:#f5f4ed;
+                 -moz-border-radius: 3px;
+                 -webkit-border-radius: 3px;
+                 border-radius: 3px;
+                 border: 1px solid #808074;
+                 box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);
+          }
+
+          /* hide the original tooltip */
+          .vis-tooltip {
+            display:none;
+          }
+             
+        </style>
+    
+    <script>
+    window.addEventListener('error', function(e) {
+        if (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK') {
+            console.warn('Failed to load resource:', e.target.src || e.target.href);
+        }
+    });
+    </script>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:.:gcp_projects_state_bucket", "label": "gcp_projects_state_bucket\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/cb.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf\u003c/a\u003e", "x": 900, "y": -680}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:.:tf_source", "label": "tf_source\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/cb.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf\u003c/a\u003e", "x": 900, "y": -600}, {"color": "#ff9800", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "module:.:tf_private_pool", "label": "tf_private_pool\n[module]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/cb.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf\u003c/a\u003e", "x": 500, "y": -360}, {"color": "#2196f3", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "source_module:modules/cb-private-pool:cb-private-pool", "label": "cb-private-pool\n[source module]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/cb-private-pool\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\u003c/a\u003e", "x": 500, "y": -280}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:.:tf_cloud_builder", "label": "tf_cloud_builder\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/cb.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf\u003c/a\u003e", "x": 900, "y": -520}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:.:bootstrap_csr_repo", "label": "bootstrap_csr_repo\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/cb.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf\u003c/a\u003e", "x": 900, "y": -440}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:.:build_terraform_image", "label": "build_terraform_image\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/cb.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf\u003c/a\u003e", "x": 900, "y": -360}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:.:tf_workspace", "label": "tf_workspace\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/cb.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf\u003c/a\u003e", "x": 900, "y": -280}, {"color": "#3f51b5", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:.:required_group", "label": "required_group\n[git module]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/groups.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\groups.tf\u003c/a\u003e", "x": 700, "y": -80}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:.:optional_group", "label": "optional_group\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/groups.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\groups.tf\u003c/a\u003e", "x": 900, "y": -200}, {"color": "#3f51b5", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:.:seed_bootstrap", "label": "seed_bootstrap\n[git module]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\main.tf\u003c/a\u003e", "x": 700, "y": 0}, {"color": "#ff9800", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "module:.:org_iam_member", "label": "org_iam_member\n[module]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/sa.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf\u003c/a\u003e", "x": 500, "y": -200}, {"color": "#2196f3", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "source_module:modules/parent-iam-member:parent-iam-member", "label": "parent-iam-member\n[source module]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/parent-iam-member\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-member\u003c/a\u003e", "x": 500, "y": -120}, {"color": "#ff9800", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "module:.:parent_iam_member", "label": "parent_iam_member\n[module]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/sa.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf\u003c/a\u003e", "x": 500, "y": -40}, {"color": "#ff9800", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "module:.:seed_project_iam_member", "label": "seed_project_iam_member\n[module]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/sa.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf\u003c/a\u003e", "x": 500, "y": 40}, {"color": "#ff9800", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "module:.:cicd_project_iam_member", "label": "cicd_project_iam_member\n[module]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/sa.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf\u003c/a\u003e", "x": 500, "y": 120}, {"color": "#ff9800", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "module:.:bootstrap_projects_remove_editor", "label": "bootstrap_projects_remove_editor\n[module]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/sa.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf\u003c/a\u003e", "x": 500, "y": 200}, {"color": "#2196f3", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "source_module:modules/parent-iam-remove-role:parent-iam-remove-role", "label": "parent-iam-remove-role\n[source module]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/parent-iam-remove-role\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-remove-role\u003c/a\u003e", "x": 500, "y": 280}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:modules/cb-private-pool:peered_network", "label": "peered_network\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/cb-private-pool/network.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\network.tf\u003c/a\u003e", "x": 900, "y": -120}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:modules/cb-private-pool:firewall_rules", "label": "firewall_rules\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/cb-private-pool/network.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\network.tf\u003c/a\u003e", "x": 900, "y": -40}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:modules/cb-private-pool:vpn_ha_cb_to_onprem", "label": "vpn_ha_cb_to_onprem\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/cb-private-pool/vpn_ha.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\vpn_ha.tf\u003c/a\u003e", "x": 900, "y": 40}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:modules/jenkins-agent:cicd_project", "label": "cicd_project\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 900, "y": 120}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:modules/jenkins-agent:jenkins_firewall_rules", "label": "jenkins_firewall_rules\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 900, "y": 200}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:modules/jenkins-agent:vpn_ha_agent_to_onprem", "label": "vpn_ha_agent_to_onprem\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/vpn_ha.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\vpn_ha.tf\u003c/a\u003e", "x": 900, "y": 280}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:modules/tfc-agent-gke:network", "label": "network\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 900, "y": 360}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:modules/tfc-agent-gke:tfc_agent_cluster", "label": "tfc_agent_cluster\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 900, "y": 440}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:modules/tfc-agent-gke:private_service_connect", "label": "private_service_connect\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 900, "y": 520}, {"color": "#795548", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "module:modules/tfc-agent-gke:hub", "label": "hub\n[registry]", "level": 2, "physics": false, "shape": "box", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 900, "y": 600}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:.:random_string.suffix", "label": "random_string.suffix\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/cb.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf\u003c/a\u003e", "x": 600, "y": -3920}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:.:google_project_service_identity.workflows_identity", "label": "google_project_service_identity.workflows_identity\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/cb.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf\u003c/a\u003e", "x": 600, "y": -3780}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:.:time_sleep.cloud_builder", "label": "time_sleep.cloud_builder\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/cb.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf\u003c/a\u003e", "x": 600, "y": -3640}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:.:google_artifact_registry_repository_iam_member.terraform_sa_artifact_registry_reader", "label": "google_artifact_registry_repository_iam_member.terraform_sa_artifact_registry_reader\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/cb.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf\u003c/a\u003e", "x": 600, "y": -3500}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:.:google_sourcerepo_repository_iam_member.member", "label": "google_sourcerepo_repository_iam_member.member\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/cb.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf\u003c/a\u003e", "x": 600, "y": -3360}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:.:google_folder.bootstrap", "label": "google_folder.bootstrap\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\main.tf\u003c/a\u003e", "x": 600, "y": -3220}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:.:google_service_account.terraform-env-sa", "label": "google_service_account.terraform-env-sa\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/sa.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf\u003c/a\u003e", "x": 600, "y": -3080}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:.:google_billing_account_iam_member.tf_billing_user", "label": "google_billing_account_iam_member.tf_billing_user\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/sa.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf\u003c/a\u003e", "x": 600, "y": -2940}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:.:google_billing_account_iam_member.billing_admin_user", "label": "google_billing_account_iam_member.billing_admin_user\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/sa.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf\u003c/a\u003e", "x": 600, "y": -2800}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:.:google_billing_account_iam_member.billing_account_sink", "label": "google_billing_account_iam_member.billing_account_sink\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/sa.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf\u003c/a\u003e", "x": 600, "y": -2660}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/cb-private-pool:random_string.suffix", "label": "random_string.suffix\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/cb-private-pool/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\main.tf\u003c/a\u003e", "x": 600, "y": -2520}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/cb-private-pool:google_cloudbuild_worker_pool.private_pool", "label": "google_cloudbuild_worker_pool.private_pool\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/cb-private-pool/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\main.tf\u003c/a\u003e", "x": 600, "y": -2380}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/cb-private-pool:google_dns_policy.default_policy", "label": "google_dns_policy.default_policy\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/cb-private-pool/network.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\network.tf\u003c/a\u003e", "x": 600, "y": -2240}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/cb-private-pool:google_compute_global_address.worker_pool_range", "label": "google_compute_global_address.worker_pool_range\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/cb-private-pool/network.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\network.tf\u003c/a\u003e", "x": 600, "y": -2100}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/cb-private-pool:google_service_networking_connection.worker_pool_conn", "label": "google_service_networking_connection.worker_pool_conn\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/cb-private-pool/network.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\network.tf\u003c/a\u003e", "x": 600, "y": -1960}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/cb-private-pool:google_compute_network_peering_routes_config.peering_routes", "label": "google_compute_network_peering_routes_config.peering_routes\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/cb-private-pool/network.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\network.tf\u003c/a\u003e", "x": 600, "y": -1820}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/gitlab-oidc:google_project_service.services", "label": "google_project_service.services\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/gitlab-oidc/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\gitlab-oidc\\main.tf\u003c/a\u003e", "x": 600, "y": -1680}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/gitlab-oidc:google_iam_workload_identity_pool.main", "label": "google_iam_workload_identity_pool.main\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/gitlab-oidc/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\gitlab-oidc\\main.tf\u003c/a\u003e", "x": 600, "y": -1540}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/gitlab-oidc:google_iam_workload_identity_pool_provider.main", "label": "google_iam_workload_identity_pool_provider.main\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/gitlab-oidc/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\gitlab-oidc\\main.tf\u003c/a\u003e", "x": 600, "y": -1400}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/gitlab-oidc:google_service_account_iam_member.wif-sa", "label": "google_service_account_iam_member.wif-sa\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/gitlab-oidc/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\gitlab-oidc\\main.tf\u003c/a\u003e", "x": 600, "y": -1260}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:random_id.suffix", "label": "random_id.suffix\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": -1120}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_service_account.jenkins_agent_gce_sa", "label": "google_service_account.jenkins_agent_gce_sa\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": -980}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_compute_instance.jenkins_agent_gce_instance", "label": "google_compute_instance.jenkins_agent_gce_instance\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": -840}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_tags_tag_key.jenkins_agents", "label": "google_tags_tag_key.jenkins_agents\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": -700}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_tags_tag_value.jenkins_agents", "label": "google_tags_tag_value.jenkins_agents\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": -560}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_compute_network.jenkins_agents", "label": "google_compute_network.jenkins_agents\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": -420}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_compute_subnetwork.jenkins_agents_subnet", "label": "google_compute_subnetwork.jenkins_agents_subnet\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": -280}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_dns_policy.default_policy", "label": "google_dns_policy.default_policy\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": -140}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_compute_address.jenkins_agent_gce_static_ip", "label": "google_compute_address.jenkins_agent_gce_static_ip\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": 0}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_compute_router.nat_router_region1", "label": "google_compute_router.nat_router_region1\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": 140}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_compute_address.nat_external_addresses1", "label": "google_compute_address.nat_external_addresses1\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": 280}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_compute_router_nat.nat_external_addresses_region1", "label": "google_compute_router_nat.nat_external_addresses_region1\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": 420}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_project_iam_member.org_admins_jenkins_admin", "label": "google_project_iam_member.org_admins_jenkins_admin\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": 560}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_project_iam_member.org_admins_jenkins_viewer", "label": "google_project_iam_member.org_admins_jenkins_viewer\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": 700}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_storage_bucket.gcs_jenkins_artifacts", "label": "google_storage_bucket.gcs_jenkins_artifacts\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": 840}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_storage_bucket_iam_member.jenkins_artifacts_iam", "label": "google_storage_bucket_iam_member.jenkins_artifacts_iam\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": 980}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_service_account_iam_member.jenkins_terraform_sa_impersonate_permissions", "label": "google_service_account_iam_member.jenkins_terraform_sa_impersonate_permissions\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": 1120}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_organization_iam_member.jenkins_serviceusage_consumer", "label": "google_organization_iam_member.jenkins_serviceusage_consumer\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": 1260}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/jenkins-agent:google_storage_bucket_iam_member.jenkins_state_iam", "label": "google_storage_bucket_iam_member.jenkins_state_iam\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 600, "y": 1400}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/parent-iam-member:google_organization_iam_member.org_parent_iam", "label": "google_organization_iam_member.org_parent_iam\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/parent-iam-member/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-member\\main.tf\u003c/a\u003e", "x": 600, "y": 1540}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/parent-iam-member:google_folder_iam_member.folder_parent_iam", "label": "google_folder_iam_member.folder_parent_iam\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/parent-iam-member/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-member\\main.tf\u003c/a\u003e", "x": 600, "y": 1680}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/parent-iam-member:google_project_iam_member.project_parent_iam", "label": "google_project_iam_member.project_parent_iam\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/parent-iam-member/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-member\\main.tf\u003c/a\u003e", "x": 600, "y": 1820}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/parent-iam-remove-role:google_organization_iam_binding.iam_remove", "label": "google_organization_iam_binding.iam_remove\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/parent-iam-remove-role/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-remove-role\\main.tf\u003c/a\u003e", "x": 600, "y": 1960}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/parent-iam-remove-role:google_folder_iam_binding.iam_remove", "label": "google_folder_iam_binding.iam_remove\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/parent-iam-remove-role/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-remove-role\\main.tf\u003c/a\u003e", "x": 600, "y": 2100}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/parent-iam-remove-role:google_project_iam_binding.iam_remove", "label": "google_project_iam_binding.iam_remove\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/parent-iam-remove-role/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-remove-role\\main.tf\u003c/a\u003e", "x": 600, "y": 2240}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/tfc-agent-gke:random_string.suffix", "label": "random_string.suffix\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 600, "y": 2380}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/tfc-agent-gke:google_service_account.tfc_agent_service_account", "label": "google_service_account.tfc_agent_service_account\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 600, "y": 2520}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/tfc-agent-gke:kubernetes_secret.tfc_agent_secrets", "label": "kubernetes_secret.tfc_agent_secrets\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 600, "y": 2660}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/tfc-agent-gke:kubernetes_deployment.tfc_agent_deployment", "label": "kubernetes_deployment.tfc_agent_deployment\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 600, "y": 2800}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/tfc-agent-gke:google_compute_router.nat", "label": "google_compute_router.nat\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 600, "y": 2940}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/tfc-agent-gke:google_compute_address.nat_external_addresses", "label": "google_compute_address.nat_external_addresses\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 600, "y": 3080}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/tfc-agent-gke:google_compute_router_nat.egress", "label": "google_compute_router_nat.egress\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 600, "y": 3220}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/tfc-agent-gke:google_compute_firewall.allow_private_api_egress", "label": "google_compute_firewall.allow_private_api_egress\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 600, "y": 3360}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/tfc-agent-gke:google_dns_policy.default_policy", "label": "google_dns_policy.default_policy\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 600, "y": 3500}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/tfc-agent-gke:google_project_service_identity.container_engine_sa", "label": "google_project_service_identity.container_engine_sa\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 600, "y": 3640}, {"color": "#00bcd4", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "resource:modules/tfc-agent-gke:google_service_account_iam_member.container_engine_sa_impersonate_permissions", "label": "google_service_account_iam_member.container_engine_sa_impersonate_permissions\n[terraform resource]", "level": 3, "physics": false, "shape": "triangle", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 600, "y": 3780}, {"color": "#9e9e9e", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf", "label": "cb.tf\n[terraform file]", "level": 1, "physics": false, "shape": "diamond", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/cb.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf\u003c/a\u003e", "x": 100, "y": -1040}, {"color": "#9e9e9e", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\groups.tf", "label": "groups.tf\n[terraform file]", "level": 1, "physics": false, "shape": "diamond", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/groups.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\groups.tf\u003c/a\u003e", "x": 100, "y": -880}, {"color": "#9e9e9e", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\main.tf", "label": "main.tf\n[terraform file]", "level": 1, "physics": false, "shape": "diamond", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\main.tf\u003c/a\u003e", "x": 100, "y": -720}, {"color": "#9e9e9e", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf", "label": "sa.tf\n[terraform file]", "level": 1, "physics": false, "shape": "diamond", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/sa.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf\u003c/a\u003e", "x": 100, "y": -560}, {"color": "#9e9e9e", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\network.tf", "label": "network.tf\n[terraform file]", "level": 1, "physics": false, "shape": "diamond", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/cb-private-pool/network.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\network.tf\u003c/a\u003e", "x": 100, "y": -400}, {"color": "#9e9e9e", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\vpn_ha.tf", "label": "vpn_ha.tf\n[terraform file]", "level": 1, "physics": false, "shape": "diamond", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/cb-private-pool/vpn_ha.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\vpn_ha.tf\u003c/a\u003e", "x": 100, "y": -240}, {"color": "#9e9e9e", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "label": "main.tf\n[terraform file]", "level": 1, "physics": false, "shape": "diamond", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf\u003c/a\u003e", "x": 100, "y": -80}, {"color": "#9e9e9e", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\vpn_ha.tf", "label": "vpn_ha.tf\n[terraform file]", "level": 1, "physics": false, "shape": "diamond", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent/vpn_ha.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\vpn_ha.tf\u003c/a\u003e", "x": 100, "y": 80}, {"color": "#9e9e9e", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "label": "main.tf\n[terraform file]", "level": 1, "physics": false, "shape": "diamond", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf\u003c/a\u003e", "x": 100, "y": 240}, {"color": "#9e9e9e", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\main.tf", "label": "main.tf\n[terraform file]", "level": 1, "physics": false, "shape": "diamond", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/cb-private-pool/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\main.tf\u003c/a\u003e", "x": 100, "y": 400}, {"color": "#9e9e9e", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\gitlab-oidc\\main.tf", "label": "main.tf\n[terraform file]", "level": 1, "physics": false, "shape": "diamond", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/gitlab-oidc/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\gitlab-oidc\\main.tf\u003c/a\u003e", "x": 100, "y": 560}, {"color": "#9e9e9e", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-member\\main.tf", "label": "main.tf\n[terraform file]", "level": 1, "physics": false, "shape": "diamond", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/parent-iam-member/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-member\\main.tf\u003c/a\u003e", "x": 100, "y": 720}, {"color": "#9e9e9e", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-remove-role\\main.tf", "label": "main.tf\n[terraform file]", "level": 1, "physics": false, "shape": "diamond", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/parent-iam-remove-role/main.tf\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-remove-role\\main.tf\u003c/a\u003e", "x": 100, "y": 880}, {"color": "#ffc107", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap", "label": "0-bootstrap\n[folder]", "level": 0, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\u003c/a\u003e", "x": -1200, "y": -120}, {"color": "#ffc107", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool", "label": "cb-private-pool\n[folder]", "level": 0, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/cb-private-pool\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\u003c/a\u003e", "x": -700, "y": -240}, {"color": "#ffc107", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules", "label": "modules\n[folder]", "level": 0, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\u003c/a\u003e", "x": -1200, "y": 0}, {"color": "#ffc107", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent", "label": "jenkins-agent\n[folder]", "level": 0, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/jenkins-agent\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\u003c/a\u003e", "x": -700, "y": -160}, {"color": "#ffc107", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke", "label": "tfc-agent-gke\n[folder]", "level": 0, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/tfc-agent-gke\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\u003c/a\u003e", "x": -700, "y": -80}, {"color": "#ffc107", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\gitlab-oidc", "label": "gitlab-oidc\n[folder]", "level": 0, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/gitlab-oidc\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\gitlab-oidc\u003c/a\u003e", "x": -700, "y": 0}, {"color": "#ffc107", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-member", "label": "parent-iam-member\n[folder]", "level": 0, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/parent-iam-member\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-member\u003c/a\u003e", "x": -700, "y": 80}, {"color": "#ffc107", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-remove-role", "label": "parent-iam-remove-role\n[folder]", "level": 0, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"vscode://file/C:/Users/newzoneadmin/Documents/Github/terraform-module-lineage/terraform-example-foundation/0-bootstrap/modules/parent-iam-remove-role\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eC:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-remove-role\u003c/a\u003e", "x": -700, "y": 160}, {"color": "#4caf50", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "registry:terraform-google-modules/cloud-storage/google//modules/simple_bucket", "label": "cloud-storage\nsubmodule: simple_bucket\n[public registry]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"https://registry.terraform.io/modules/terraform-google-modules/cloud-storage/google//modules/simple_bucket\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eregistry.terraform.io/terraform-google-modules/cloud-storage/google//modules/simple_bucket\u003c/a\u003e", "x": 1100, "y": -560}, {"color": "#4caf50", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "registry:terraform-google-modules/bootstrap/google//modules/tf_cloudbuild_source", "label": "bootstrap\nsubmodule: tf_cloudbuild_source\n[public registry]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"https://registry.terraform.io/modules/terraform-google-modules/bootstrap/google//modules/tf_cloudbuild_source\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eregistry.terraform.io/terraform-google-modules/bootstrap/google//modules/tf_cloudbuild_source\u003c/a\u003e", "x": 1100, "y": -480}, {"color": "#4caf50", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "registry:terraform-google-modules/bootstrap/google//modules/tf_cloudbuild_builder", "label": "bootstrap\nsubmodule: tf_cloudbuild_builder\n[public registry]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"https://registry.terraform.io/modules/terraform-google-modules/bootstrap/google//modules/tf_cloudbuild_builder\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eregistry.terraform.io/terraform-google-modules/bootstrap/google//modules/tf_cloudbuild_builder\u003c/a\u003e", "x": 1100, "y": -400}, {"color": "#4caf50", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "registry:terraform-google-modules/gcloud/google", "label": "gcloud\nmain module\n[public registry]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"https://registry.terraform.io/modules/terraform-google-modules/gcloud/google\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eregistry.terraform.io/terraform-google-modules/gcloud/google\u003c/a\u003e", "x": 1100, "y": -320}, {"color": "#4caf50", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "registry:terraform-google-modules/bootstrap/google//modules/tf_cloudbuild_workspace", "label": "bootstrap\nsubmodule: tf_cloudbuild_workspace\n[public registry]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"https://registry.terraform.io/modules/terraform-google-modules/bootstrap/google//modules/tf_cloudbuild_workspace\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eregistry.terraform.io/terraform-google-modules/bootstrap/google//modules/tf_cloudbuild_workspace\u003c/a\u003e", "x": 1100, "y": -240}, {"color": "#4caf50", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "registry:terraform-google-modules/group/google", "label": "group\nmain module\n[public registry]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"https://registry.terraform.io/modules/terraform-google-modules/group/google\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eregistry.terraform.io/terraform-google-modules/group/google\u003c/a\u003e", "x": 1100, "y": -160}, {"color": "#4caf50", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "registry:terraform-google-modules/network/google", "label": "network\nmain module\n[public registry]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"https://registry.terraform.io/modules/terraform-google-modules/network/google\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eregistry.terraform.io/terraform-google-modules/network/google\u003c/a\u003e", "x": 1100, "y": -80}, {"color": "#4caf50", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "registry:terraform-google-modules/network/google//modules/firewall-rules", "label": "network\nsubmodule: firewall-rules\n[public registry]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"https://registry.terraform.io/modules/terraform-google-modules/network/google//modules/firewall-rules\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eregistry.terraform.io/terraform-google-modules/network/google//modules/firewall-rules\u003c/a\u003e", "x": 1100, "y": 0}, {"color": "#4caf50", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "registry:terraform-google-modules/vpn/google//modules/vpn_ha", "label": "vpn\nsubmodule: vpn_ha\n[public registry]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"https://registry.terraform.io/modules/terraform-google-modules/vpn/google//modules/vpn_ha\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eregistry.terraform.io/terraform-google-modules/vpn/google//modules/vpn_ha\u003c/a\u003e", "x": 1100, "y": 80}, {"color": "#4caf50", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "registry:terraform-google-modules/project-factory/google", "label": "project-factory\nmain module\n[public registry]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"https://registry.terraform.io/modules/terraform-google-modules/project-factory/google\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eregistry.terraform.io/terraform-google-modules/project-factory/google\u003c/a\u003e", "x": 1100, "y": 160}, {"color": "#4caf50", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "registry:terraform-google-modules/network/google//modules/network-firewall-policy", "label": "network\nsubmodule: network-firewall-policy\n[public registry]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"https://registry.terraform.io/modules/terraform-google-modules/network/google//modules/network-firewall-policy\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eregistry.terraform.io/terraform-google-modules/network/google//modules/network-firewall-policy\u003c/a\u003e", "x": 1100, "y": 240}, {"color": "#4caf50", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "registry:terraform-google-modules/kubernetes-engine/google//modules/beta-autopilot-private-cluster/", "label": "kubernetes-engine\nsubmodule: \n[public registry]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"https://registry.terraform.io/modules/terraform-google-modules/kubernetes-engine/google//modules/beta-autopilot-private-cluster/\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eregistry.terraform.io/terraform-google-modules/kubernetes-engine/google//modules/beta-autopilot-private-cluster/\u003c/a\u003e", "x": 1100, "y": 320}, {"color": "#4caf50", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "registry:terraform-google-modules/network/google//modules/private-service-connect", "label": "network\nsubmodule: private-service-connect\n[public registry]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"https://registry.terraform.io/modules/terraform-google-modules/network/google//modules/private-service-connect\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eregistry.terraform.io/terraform-google-modules/network/google//modules/private-service-connect\u003c/a\u003e", "x": 1100, "y": 400}, {"color": "#4caf50", "font": {"color": "black", "face": "Segoe UI", "size": 16}, "id": "registry:terraform-google-modules/kubernetes-engine/google//modules/fleet-membership", "label": "kubernetes-engine\nsubmodule: fleet-membership\n[public registry]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"https://registry.terraform.io/modules/terraform-google-modules/kubernetes-engine/google//modules/fleet-membership\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003eregistry.terraform.io/terraform-google-modules/kubernetes-engine/google//modules/fleet-membership\u003c/a\u003e", "x": 1100, "y": 480}, {"color": "#2196f3", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "git:git::github.com/terraform-google-modules/terraform-google-billing-iam//modules/billing_accounts_iam?ref=main", "label": "terraform-google-modules/terraform-google-billing-iam\npath: modules/billing_accounts_iam?ref=main\n[git repository]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"git::github.com/terraform-google-modules/terraform-google-billing-iam//modules/billing_accounts_iam?ref=main\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003egit::github.com/terraform-google-modules/terraform-google-billing-iam//modules/billing_accounts_iam?ref=main\u003c/a\u003e", "x": 800, "y": -80}, {"color": "#2196f3", "font": {"color": "white", "face": "Segoe UI", "size": 16}, "id": "git:git::https://github.com/terraform-google-modules/terraform-google-bootstrap.git//examples/simple-folder", "label": "https:\npath: github.com/terraform-google-modules/terraform-google-bootstrap.git\n[git repository]", "level": 3, "physics": false, "shape": "ellipse", "title": "\u003ca href=\"https://github.com/terraform-google-modules/terraform-google-bootstrap/tree/main/examples/simple-folder\" target=\"_blank\" style=\"color: #0066cc; text-decoration: underline; font-weight: bold;\"\u003ehttps://github.com/terraform-google-modules/terraform-google-bootstrap/tree/main/examples/simple-folder\u003c/a\u003e", "x": 800, "y": 0}]);
+                  edges = new vis.DataSet([{"arrows": "to", "from": "module:.:gcp_projects_state_bucket", "to": "registry:terraform-google-modules/cloud-storage/google//modules/simple_bucket"}, {"arrows": "to", "from": "module:.:tf_source", "to": "registry:terraform-google-modules/bootstrap/google//modules/tf_cloudbuild_source"}, {"arrows": "to", "from": "source_module:modules/cb-private-pool:cb-private-pool", "to": "module:.:tf_private_pool"}, {"arrows": "to", "from": "module:.:tf_cloud_builder", "to": "registry:terraform-google-modules/bootstrap/google//modules/tf_cloudbuild_builder"}, {"arrows": "to", "from": "module:.:bootstrap_csr_repo", "to": "registry:terraform-google-modules/gcloud/google"}, {"arrows": "to", "from": "module:.:build_terraform_image", "to": "registry:terraform-google-modules/gcloud/google"}, {"arrows": "to", "from": "module:.:tf_workspace", "to": "registry:terraform-google-modules/bootstrap/google//modules/tf_cloudbuild_workspace"}, {"arrows": "to", "from": "module:.:required_group", "to": "git:git::github.com/terraform-google-modules/terraform-google-billing-iam//modules/billing_accounts_iam?ref=main"}, {"arrows": "to", "from": "module:.:optional_group", "to": "registry:terraform-google-modules/group/google"}, {"arrows": "to", "from": "module:.:seed_bootstrap", "to": "git:git::https://github.com/terraform-google-modules/terraform-google-bootstrap.git//examples/simple-folder"}, {"arrows": "to", "from": "source_module:modules/parent-iam-member:parent-iam-member", "to": "module:.:org_iam_member"}, {"arrows": "to", "from": "source_module:modules/parent-iam-member:parent-iam-member", "to": "module:.:parent_iam_member"}, {"arrows": "to", "from": "source_module:modules/parent-iam-member:parent-iam-member", "to": "module:.:seed_project_iam_member"}, {"arrows": "to", "from": "source_module:modules/parent-iam-member:parent-iam-member", "to": "module:.:cicd_project_iam_member"}, {"arrows": "to", "color": "#ff6b6b", "font": {"color": "#ff6b6b", "size": 10}, "from": "module:.:seed_project_iam_member", "label": "uses seed_bootstrap", "to": "module:.:seed_bootstrap", "width": 1.5}, {"arrows": "to", "from": "source_module:modules/parent-iam-remove-role:parent-iam-remove-role", "to": "module:.:bootstrap_projects_remove_editor"}, {"arrows": "to", "from": "module:modules/cb-private-pool:peered_network", "to": "registry:terraform-google-modules/network/google"}, {"arrows": "to", "from": "module:modules/cb-private-pool:firewall_rules", "to": "registry:terraform-google-modules/network/google//modules/firewall-rules"}, {"arrows": "to", "from": "module:modules/cb-private-pool:vpn_ha_cb_to_onprem", "to": "registry:terraform-google-modules/vpn/google//modules/vpn_ha"}, {"arrows": "to", "from": "module:modules/jenkins-agent:cicd_project", "to": "registry:terraform-google-modules/project-factory/google"}, {"arrows": "to", "from": "module:modules/jenkins-agent:jenkins_firewall_rules", "to": "registry:terraform-google-modules/network/google//modules/network-firewall-policy"}, {"arrows": "to", "from": "module:modules/jenkins-agent:vpn_ha_agent_to_onprem", "to": "registry:terraform-google-modules/vpn/google//modules/vpn_ha"}, {"arrows": "to", "from": "module:modules/tfc-agent-gke:network", "to": "registry:terraform-google-modules/network/google"}, {"arrows": "to", "from": "module:modules/tfc-agent-gke:tfc_agent_cluster", "to": "registry:terraform-google-modules/kubernetes-engine/google//modules/beta-autopilot-private-cluster/"}, {"arrows": "to", "from": "module:modules/tfc-agent-gke:private_service_connect", "to": "registry:terraform-google-modules/network/google//modules/private-service-connect"}, {"arrows": "to", "from": "module:modules/tfc-agent-gke:hub", "to": "registry:terraform-google-modules/kubernetes-engine/google//modules/fleet-membership"}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf", "to": "module:.:gcp_projects_state_bucket", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf", "to": "module:.:tf_source", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf", "to": "module:.:tf_private_pool", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf", "to": "module:.:tf_cloud_builder", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf", "to": "module:.:bootstrap_csr_repo", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf", "to": "module:.:build_terraform_image", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf", "to": "module:.:tf_workspace", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf", "to": "resource:.:random_string.suffix", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf", "to": "resource:.:google_project_service_identity.workflows_identity", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf", "to": "resource:.:time_sleep.cloud_builder", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf", "to": "resource:.:google_artifact_registry_repository_iam_member.terraform_sa_artifact_registry_reader", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf", "to": "resource:.:google_sourcerepo_repository_iam_member.member", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\groups.tf", "to": "module:.:required_group", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\groups.tf", "to": "module:.:optional_group", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\main.tf", "to": "module:.:seed_bootstrap", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\main.tf", "to": "resource:.:google_folder.bootstrap", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf", "to": "module:.:org_iam_member", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf", "to": "module:.:parent_iam_member", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf", "to": "module:.:seed_project_iam_member", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf", "to": "module:.:cicd_project_iam_member", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf", "to": "module:.:bootstrap_projects_remove_editor", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf", "to": "resource:.:google_service_account.terraform-env-sa", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf", "to": "resource:.:google_billing_account_iam_member.tf_billing_user", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf", "to": "resource:.:google_billing_account_iam_member.billing_admin_user", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf", "to": "resource:.:google_billing_account_iam_member.billing_account_sink", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\network.tf", "to": "module:modules/cb-private-pool:peered_network", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\network.tf", "to": "module:modules/cb-private-pool:firewall_rules", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\network.tf", "to": "resource:modules/cb-private-pool:google_dns_policy.default_policy", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\network.tf", "to": "resource:modules/cb-private-pool:google_compute_global_address.worker_pool_range", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\network.tf", "to": "resource:modules/cb-private-pool:google_service_networking_connection.worker_pool_conn", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\network.tf", "to": "resource:modules/cb-private-pool:google_compute_network_peering_routes_config.peering_routes", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\vpn_ha.tf", "to": "module:modules/cb-private-pool:vpn_ha_cb_to_onprem", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "module:modules/jenkins-agent:cicd_project", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "module:modules/jenkins-agent:jenkins_firewall_rules", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:random_id.suffix", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_service_account.jenkins_agent_gce_sa", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_compute_instance.jenkins_agent_gce_instance", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_tags_tag_key.jenkins_agents", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_tags_tag_value.jenkins_agents", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_compute_network.jenkins_agents", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_compute_subnetwork.jenkins_agents_subnet", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_dns_policy.default_policy", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_compute_address.jenkins_agent_gce_static_ip", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_compute_router.nat_router_region1", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_compute_address.nat_external_addresses1", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_compute_router_nat.nat_external_addresses_region1", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_project_iam_member.org_admins_jenkins_admin", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_project_iam_member.org_admins_jenkins_viewer", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_storage_bucket.gcs_jenkins_artifacts", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_storage_bucket_iam_member.jenkins_artifacts_iam", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_service_account_iam_member.jenkins_terraform_sa_impersonate_permissions", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_organization_iam_member.jenkins_serviceusage_consumer", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "to": "resource:modules/jenkins-agent:google_storage_bucket_iam_member.jenkins_state_iam", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\vpn_ha.tf", "to": "module:modules/jenkins-agent:vpn_ha_agent_to_onprem", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "to": "module:modules/tfc-agent-gke:network", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "to": "module:modules/tfc-agent-gke:tfc_agent_cluster", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "to": "module:modules/tfc-agent-gke:private_service_connect", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "to": "module:modules/tfc-agent-gke:hub", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "to": "resource:modules/tfc-agent-gke:random_string.suffix", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "to": "resource:modules/tfc-agent-gke:google_service_account.tfc_agent_service_account", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "to": "resource:modules/tfc-agent-gke:kubernetes_secret.tfc_agent_secrets", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "to": "resource:modules/tfc-agent-gke:kubernetes_deployment.tfc_agent_deployment", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "to": "resource:modules/tfc-agent-gke:google_compute_router.nat", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "to": "resource:modules/tfc-agent-gke:google_compute_address.nat_external_addresses", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "to": "resource:modules/tfc-agent-gke:google_compute_router_nat.egress", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "to": "resource:modules/tfc-agent-gke:google_compute_firewall.allow_private_api_egress", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "to": "resource:modules/tfc-agent-gke:google_dns_policy.default_policy", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "to": "resource:modules/tfc-agent-gke:google_project_service_identity.container_engine_sa", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "to": "resource:modules/tfc-agent-gke:google_service_account_iam_member.container_engine_sa_impersonate_permissions", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\main.tf", "to": "resource:modules/cb-private-pool:random_string.suffix", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\main.tf", "to": "resource:modules/cb-private-pool:google_cloudbuild_worker_pool.private_pool", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\gitlab-oidc\\main.tf", "to": "resource:modules/gitlab-oidc:google_project_service.services", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\gitlab-oidc\\main.tf", "to": "resource:modules/gitlab-oidc:google_iam_workload_identity_pool.main", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\gitlab-oidc\\main.tf", "to": "resource:modules/gitlab-oidc:google_iam_workload_identity_pool_provider.main", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\gitlab-oidc\\main.tf", "to": "resource:modules/gitlab-oidc:google_service_account_iam_member.wif-sa", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-member\\main.tf", "to": "resource:modules/parent-iam-member:google_organization_iam_member.org_parent_iam", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-member\\main.tf", "to": "resource:modules/parent-iam-member:google_folder_iam_member.folder_parent_iam", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-member\\main.tf", "to": "resource:modules/parent-iam-member:google_project_iam_member.project_parent_iam", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-remove-role\\main.tf", "to": "resource:modules/parent-iam-remove-role:google_organization_iam_binding.iam_remove", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-remove-role\\main.tf", "to": "resource:modules/parent-iam-remove-role:google_folder_iam_binding.iam_remove", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-remove-role\\main.tf", "to": "resource:modules/parent-iam-remove-role:google_project_iam_binding.iam_remove", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap", "to": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\cb.tf", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap", "to": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\groups.tf", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap", "to": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\main.tf", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap", "to": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\sa.tf", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap", "to": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool", "to": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\network.tf", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool", "to": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\vpn_ha.tf", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool", "to": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool\\main.tf", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules", "to": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\cb-private-pool", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules", "to": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules", "to": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules", "to": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\gitlab-oidc", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules", "to": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-member", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules", "to": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-remove-role", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent", "to": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\main.tf", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent", "to": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\jenkins-agent\\vpn_ha.tf", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke", "to": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\tfc-agent-gke\\main.tf", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\gitlab-oidc", "to": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\gitlab-oidc\\main.tf", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-member", "to": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-member\\main.tf", "width": 2}, {"arrows": "to", "color": "#666666", "dashes": true, "from": "folder:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-remove-role", "to": "file:C:\\Users\\newzoneadmin\\Documents\\Github\\terraform-module-lineage\\terraform-example-foundation\\0-bootstrap\\modules\\parent-iam-remove-role\\main.tf", "width": 2}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {"physics": {"enabled": false}, "layout": {"hierarchical": {"enabled": false}, "randomSeed": 42, "improvedLayout": false}, "interaction": {"dragNodes": true, "dragView": true, "zoomView": true}, "nodes": {"physics": false, "fixed": {"x": true, "y": true}, "chosen": false}, "edges": {"arrows": {"to": {"enabled": true}}, "smooth": {"type": "cubicBezier"}, "physics": false}};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+                  // make a custom popup
+                      var popup = document.createElement("div");
+                      popup.className = 'popup';
+                      popupTimeout = null;
+                      popup.addEventListener('mouseover', function () {
+                          console.log(popup)
+                          if (popupTimeout !== null) {
+                              clearTimeout(popupTimeout);
+                              popupTimeout = null;
+                          }
+                      });
+                      popup.addEventListener('mouseout', function () {
+                          if (popupTimeout === null) {
+                              hidePopup();
+                          }
+                      });
+                      container.appendChild(popup);
+
+
+                      // use the popup event to show
+                      network.on("showPopup", function (params) {
+                          showPopup(params);
+                      });
+
+                      // use the hide event to hide it
+                      network.on("hidePopup", function (params) {
+                          hidePopup();
+                      });
+
+                      // hiding the popup through css
+                      function hidePopup() {
+                          popupTimeout = setTimeout(function () { popup.style.display = 'none'; }, 500);
+                      }
+
+                      // showing the popup
+                      function showPopup(nodeId) {
+                          // get the data from the vis.DataSet
+                          var nodeData = nodes.get([nodeId]);
+                          popup.innerHTML = nodeData[0].title;
+
+                          // get the position of the node
+                          var posCanvas = network.getPositions([nodeId])[nodeId];
+
+                          // get the bounding box of the node
+                          var boundingBox = network.getBoundingBox(nodeId);
+
+                          //position tooltip:
+                          posCanvas.x = posCanvas.x + 0.5 * (boundingBox.right - boundingBox.left);
+
+                          // convert coordinates to the DOM space
+                          var posDOM = network.canvasToDOM(posCanvas);
+
+                          // Give it an offset
+                          posDOM.x += 10;
+                          posDOM.y -= 20;
+
+                          // show and place the tooltip.
+                          popup.style.display = 'block';
+                          popup.style.top = posDOM.y + 'px';
+                          popup.style.left = posDOM.x + 'px';
+                      }
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    
+    <script>
+    // Generate a unique key based on the current page URL and content
+    var storageKey = 'terraform_lineage_positions_' + window.location.pathname.replace(/[^a-zA-Z0-9]/g, '_');
+    
+    // Load saved positions from localStorage
+    function loadSavedPositions() {
+        try {
+            var saved = localStorage.getItem(storageKey);
+            return saved ? JSON.parse(saved) : {};
+        } catch (e) {
+            console.warn('Failed to load saved positions:', e);
+            return {};
+        }
+    }
+    
+    // Save positions to localStorage
+    function savePositions(positions) {
+        try {
+            var positionCount = Object.keys(positions).length;
+            localStorage.setItem(storageKey, JSON.stringify(positions));
+            console.log('Successfully saved', positionCount, 'node positions to localStorage with key:', storageKey);
+            
+            // Verify the save worked
+            var testLoad = localStorage.getItem(storageKey);
+            if (testLoad) {
+                console.log('Verification: positions successfully stored');
+            } else {
+                console.error('Verification failed: positions not found in localStorage');
+            }
+        } catch (e) {
+            console.error('Failed to save positions:', e);
+        }
+    }
+    
+    // Apply saved positions to nodes
+    function applySavedPositions() {
+        var savedPositions = loadSavedPositions();
+        if (Object.keys(savedPositions).length > 0) {
+            console.log('Applying saved positions for', Object.keys(savedPositions).length, 'nodes');
+            
+            // Get all current node IDs to check what exists
+            var allNodes = nodes.get();
+            var existingNodeIds = new Set(allNodes.map(function(node) { return node.id; }));
+            
+            var nodeUpdates = [];
+            for (var nodeId in savedPositions) {
+                if (existingNodeIds.has(nodeId)) {
+                    nodeUpdates.push({
+                        id: nodeId,
+                        x: savedPositions[nodeId].x,
+                        y: savedPositions[nodeId].y,
+                        physics: false
+                    });
+                    console.log('Restoring position for node:', nodeId, 'to x:', savedPositions[nodeId].x, 'y:', savedPositions[nodeId].y);
+                } else {
+                    console.log('Skipping saved position for non-existent node:', nodeId);
+                }
+            }
+            
+            if (nodeUpdates.length > 0) {
+                nodes.update(nodeUpdates);
+                console.log('Successfully applied', nodeUpdates.length, 'saved positions');
+                
+                // Force network to redraw with new positions
+                network.redraw();
+            }
+        } else {
+            console.log('No saved positions found - using default layout');
+        }
+    }
+    
+    // Apply saved positions immediately after network creation (before stabilization)
+    setTimeout(function() {
+        console.log('Applying saved positions immediately to override defaults');
+        applySavedPositions();
+    }, 50);
+    
+    // Wait for network to be stabilized
+    network.on('stabilizationIterationsDone', function() {
+        console.log('Network stabilized - ensuring saved positions and free movement');
+        
+        // Disable physics first to prevent interference
+        network.setOptions({
+            physics: { enabled: false },
+            layout: { hierarchical: { enabled: false } },
+            interaction: {
+                dragNodes: true,
+                dragView: true,
+                zoomView: true
+            }
+        });
+        
+        // Apply saved positions again to ensure they override any stabilization changes
+        setTimeout(function() {
+            applySavedPositions();
+            
+            // Make all nodes movable
+            var allPositions = network.getPositions();
+            var allNodeIds = Object.keys(allPositions);
+            var nodeUpdates = allNodeIds.map(function(nodeId) {
+                return {
+                    id: nodeId,
+                    physics: false
+                };
+            });
+            
+            nodes.update(nodeUpdates);
+            console.log('Final: All nodes are freely movable with saved positions applied');
+        }, 100);
+    });
+    
+    // Handle dragging to keep nodes where dropped and save positions permanently
+    network.on('dragEnd', function(params) {
+        if (params.nodes.length > 0) {
+            console.log('Drag ended - permanently saving positions');
+            
+            // Get the final positions of dragged nodes
+            var positions = network.getPositions(params.nodes);
+            
+            // Update nodes to stay at their new positions permanently
+            var nodeUpdates = params.nodes.map(function(nodeId) {
+                return {
+                    id: nodeId,
+                    x: positions[nodeId].x,
+                    y: positions[nodeId].y,
+                    physics: false,
+                    fixed: false
+                };
+            });
+            
+            // Apply the updates to keep nodes in place
+            nodes.update(nodeUpdates);
+            
+            // Save ALL current positions to localStorage (not just moved ones)
+            var allPositions = network.getPositions();
+            savePositions(allPositions);
+            
+            console.log('All positions saved permanently');
+        }
+    });
+    
+    // Also save positions when nodes are moved by any other means
+    network.on('afterDrawing', function() {
+        // Throttle saves to avoid excessive localStorage writes
+        if (!window.lastPositionSave || Date.now() - window.lastPositionSave > 1000) {
+            var allPositions = network.getPositions();
+            if (Object.keys(allPositions).length > 0) {
+                savePositions(allPositions);
+                window.lastPositionSave = Date.now();
+            }
+        }
+    });
+    
+    // Fallback: Force override after delay if stabilization doesn't trigger
+    setTimeout(function() {
+        console.log('Timeout override - ensuring free movement and applying saved positions');
+        
+        // Apply saved positions first
+        applySavedPositions();
+        
+        var allPositions = network.getPositions();
+        var allNodeIds = Object.keys(allPositions);
+        
+        if (allNodeIds.length > 0) {
+            var nodeUpdates = allNodeIds.map(function(nodeId) {
+                return {
+                    id: nodeId,
+                    x: allPositions[nodeId].x,
+                    y: allPositions[nodeId].y,
+                    physics: false,
+                    fixed: false
+                };
+            });
+            
+            nodes.update(nodeUpdates);
+            
+            network.setOptions({
+                physics: { enabled: false },
+                layout: { hierarchical: { enabled: false } },
+                interaction: {
+                    dragNodes: true,
+                    dragView: true,
+                    zoomView: true
+                }
+            });
+        }
+    }, 2000);
+    
+    // Auto-save positions periodically to ensure persistence
+    setInterval(function() {
+        var allPositions = network.getPositions();
+        if (Object.keys(allPositions).length > 0) {
+            savePositions(allPositions);
+        }
+    }, 5000); // Save every 5 seconds to ensure no position changes are lost
+    </script>
+    
+
+    <style>
+    .search-container {
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        z-index: 1000;
+        background: white;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        padding: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        font-family: 'Segoe UI', sans-serif;
+    }
+    
+    .search-input {
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 200px;
+        outline: none;
+    }
+    
+    .search-input:focus {
+        border-color: #0066cc;
+        box-shadow: 0 0 5px rgba(0,102,204,0.3);
+    }
+    
+    .search-results {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #666;
+    }
+    
+    .clear-button {
+        margin-left: 8px;
+        padding: 8px 12px;
+        background: #f44336;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+    }
+    
+    .clear-button:hover {
+        background: #d32f2f;
+    }
+    
+    .spacing-button {
+        margin-left: 8px;
+        padding: 8px 12px;
+        background: #2196F3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .spacing-button:hover {
+        background: #1976D2;
+    }
+    
+    .spacing-decrease-button {
+        margin-left: 8px;
+        padding: 8px 12px;
+        background: #FF9800;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .spacing-decrease-button:hover {
+        background: #F57C00;
+    }
+    
+    .vertical-spacing-button {
+        margin-left: 8px;
+        padding: 8px 12px;
+        background: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    
+    .vertical-spacing-button:hover {
+        background: #388E3C;
+    }
+    </style>
+    
+    <div class="search-container">
+        <input type="text" id="searchInput" class="search-input" placeholder="Search entities..." />
+        <button id="clearButton" class="clear-button">Clear</button>
+        <button id="spacingButton" class="spacing-button"><--></button>
+        <button id="spacingDecreaseButton" class="spacing-decrease-button">>--<</button>
+        <button id="verticalSpacingButton" class="vertical-spacing-button">^</button>
+        <div id="searchResults" class="search-results"></div>
+    </div>
+    
+    <script>
+    // Search functionality
+    let originalNodeColors = {};
+    let originalNodeBorders = {};
+    let originalEdgeColors = {};
+    let originalEdgeWidths = {};
+    
+    // Store original colors when network is ready
+    network.once('afterDrawing', function() {
+        nodes.forEach(function(node) {
+            originalNodeColors[node.id] = node.color;
+            originalNodeBorders[node.id] = node.borderWidth || 2;
+        });
+        edges.forEach(function(edge) {
+            originalEdgeColors[edge.id] = edge.color;
+            originalEdgeWidths[edge.id] = edge.width || 1;
+        });
+    });
+    
+    function searchEntities(searchTerm) {
+        if (!searchTerm) {
+            clearSearch();
+            return;
+        }
+        
+        searchTerm = searchTerm.toLowerCase();
+        let matchedNodes = [];
+        let connectedNodes = new Set();
+        let connectedEdges = new Set();
+        let totalNodes = 0;
+        
+        // First, find all matched nodes
+        nodes.forEach(function(node) {
+            totalNodes++;
+            let label = (node.label || '').toLowerCase();
+            let isMatch = label.includes(searchTerm);
+            
+            if (isMatch) {
+                matchedNodes.push(node);
+                connectedNodes.add(node.id);
+            }
+        });
+        
+        // Find all nodes connected to matched nodes and their edges
+        if (matchedNodes.length > 0) {
+            matchedNodes.forEach(function(matchedNode) {
+                // Get all edges connected to this node
+                let connectedEdgeIds = network.getConnectedEdges(matchedNode.id);
+                connectedEdgeIds.forEach(function(edgeId) {
+                    connectedEdges.add(edgeId);
+                    
+                    // Get the other nodes connected by this edge
+                    let connectedNodeIds = network.getConnectedNodes(matchedNode.id);
+                    connectedNodeIds.forEach(function(nodeId) {
+                        connectedNodes.add(nodeId);
+                    });
+                });
+            });
+        }
+        
+        // Update node appearances
+        let nodeUpdates = [];
+        nodes.forEach(function(node) {
+            if (matchedNodes.some(m => m.id === node.id)) {
+                // Primary matched nodes - bright highlight
+                nodeUpdates.push({
+                    id: node.id,
+                    color: {
+                        background: '#ffeb3b',  // Yellow highlight
+                        border: '#ff9800'      // Orange border
+                    },
+                    borderWidth: 5,
+                    font: {
+                        color: '#000000',
+                        size: 18,
+                        face: 'Segoe UI',
+                        bold: true
+                    }
+                });
+            } else if (connectedNodes.has(node.id)) {
+                // Connected nodes - secondary highlight
+                nodeUpdates.push({
+                    id: node.id,
+                    color: {
+                        background: '#e1f5fe',  // Light blue highlight
+                        border: '#0288d1'      // Blue border
+                    },
+                    borderWidth: 3,
+                    font: {
+                        color: '#000000',
+                        size: 17,
+                        face: 'Segoe UI'
+                    }
+                });
+            } else {
+                // Dim non-connected nodes
+                nodeUpdates.push({
+                    id: node.id,
+                    color: {
+                        background: '#f5f5f5',  // Light gray
+                        border: '#e0e0e0'      // Lighter border
+                    },
+                    borderWidth: 1,
+                    font: {
+                        color: '#999999',
+                        size: 16,
+                        face: 'Segoe UI'
+                    }
+                });
+            }
+        });
+        
+        // Update edges
+        let edgeUpdates = [];
+        edges.forEach(function(edge) {
+            if (connectedEdges.has(edge.id)) {
+                // Highlight connected edges
+                edgeUpdates.push({
+                    id: edge.id,
+                    color: {
+                        color: '#ff5722',     // Red-orange for highlighted edges
+                        highlight: '#d84315'
+                    },
+                    width: 4,
+                    shadow: true
+                });
+            } else {
+                // Dim other edges
+                edgeUpdates.push({
+                    id: edge.id,
+                    color: {
+                        color: '#e0e0e0',     // Light gray for dimmed edges
+                        highlight: '#bdbdbd'
+                    },
+                    width: 1,
+                    shadow: false
+                });
+            }
+        });
+        
+        // Apply updates
+        nodes.update(nodeUpdates);
+        edges.update(edgeUpdates);
+        
+        // Update search results
+        const resultsDiv = document.getElementById('searchResults');
+        if (matchedNodes.length > 0) {
+            const connectedCount = connectedNodes.size - matchedNodes.length;
+            resultsDiv.innerHTML = `Found <strong>${matchedNodes.length}</strong> matches<br/>+ <strong>${connectedCount}</strong> connected entities<br/>+ <strong>${connectedEdges.size}</strong> highlighted edges`;
+            
+            // Focus on first match if available
+            network.focus(matchedNodes[0].id, {
+                scale: 1.0,
+                animation: {
+                    duration: 500,
+                    easingFunction: 'easeInOutQuart'
+                }
+            });
+        } else {
+            resultsDiv.textContent = `No matches found for "${searchTerm}"`;
+        }
+    }
+    
+    function clearSearch() {
+        // Reset all nodes to original appearance
+        let nodeUpdates = [];
+        nodes.forEach(function(node) {
+            nodeUpdates.push({
+                id: node.id,
+                color: originalNodeColors[node.id] || node.color,
+                borderWidth: originalNodeBorders[node.id] || 2,
+                font: {
+                    color: '#000000',
+                    size: 16,
+                    face: 'Segoe UI'
+                }
+            });
+        });
+        
+        // Reset all edges to original appearance
+        let edgeUpdates = [];
+        edges.forEach(function(edge) {
+            edgeUpdates.push({
+                id: edge.id,
+                color: originalEdgeColors[edge.id] || edge.color,
+                width: originalEdgeWidths[edge.id] || 1
+            });
+        });
+        
+        // Update all nodes and edges
+        nodes.update(nodeUpdates);
+        edges.update(edgeUpdates);
+        
+        // Clear search results
+        document.getElementById('searchResults').textContent = '';
+        document.getElementById('searchInput').value = '';
+        
+        // Reset view
+        network.fit({
+            animation: {
+                duration: 500,
+                easingFunction: 'easeInOutQuart'
+            }
+        });
+    }
+    
+    // Node spacing functionality
+    let currentLevelSeparation = 200; // Horizontal spacing between levels (columns)
+    let currentNodeSpacing = 120; // Vertical spacing between nodes
+    let currentTreeSpacing = 180; // Vertical spacing between trees
+    const minLevelSeparation = 100; // Minimum horizontal spacing
+    const minNodeSpacing = 80; // Minimum vertical spacing
+    let layoutMode = 'hierarchical'; // Track current layout mode
+    let storedPositions = {}; // Store manual positions
+    
+    function increaseSpacing() {
+        // Increase only horizontal spacing by 50% each time
+        currentLevelSeparation = Math.round(currentLevelSeparation * 1.5);
+        updateLayout();
+        console.log(`Horizontal spacing increased - Level separation: ${currentLevelSeparation}px`);
+    }
+    
+    function decreaseSpacing() {
+        // Decrease only horizontal spacing by 33% each time (inverse of 1.5x)
+        let newSeparation = Math.round(currentLevelSeparation / 1.5);
+        
+        // Don't go below minimum spacing
+        if (newSeparation >= minLevelSeparation) {
+            currentLevelSeparation = newSeparation;
+            updateLayout();
+            console.log(`Horizontal spacing decreased - Level separation: ${currentLevelSeparation}px`);
+        } else {
+            console.log(`Cannot decrease further - minimum spacing is ${minLevelSeparation}px`);
+        }
+    }
+    
+    function increaseVerticalSpacing() {
+        // Increase vertical spacing by 50% each time
+        currentNodeSpacing = Math.round(currentNodeSpacing * 1.5);
+        currentTreeSpacing = Math.round(currentTreeSpacing * 1.5);
+        updateLayout();
+        console.log(`Vertical spacing increased - Node spacing: ${currentNodeSpacing}px, Tree spacing: ${currentTreeSpacing}px`);
+    }
+    
+    function updateLayout() {
+        if (layoutMode === 'hierarchical') {
+            // First time - apply hierarchical layout with new spacing
+            network.setOptions({
+                layout: {
+                    hierarchical: {
+                        enabled: true,
+                        levelSeparation: currentLevelSeparation,
+                        nodeSpacing: currentNodeSpacing,
+                        treeSpacing: currentTreeSpacing,
+                        direction: "LR",
+                        sortMethod: "directed",
+                        shakeTowards: "roots"
+                    }
+                },
+                physics: {
+                    enabled: true,
+                    stabilization: {
+                        enabled: true,
+                        iterations: 100
+                    }
+                },
+                interaction: {
+                    dragNodes: true,
+                    dragView: true,
+                    zoomView: true
+                }
+            });
+            
+            // After stabilization, switch to manual mode and store positions
+            setTimeout(function() {
+                // Store the new hierarchical positions
+                storedPositions = network.getPositions();
+                
+                // Switch to manual positioning mode
+                layoutMode = 'manual';
+                network.setOptions({
+                    layout: { hierarchical: { enabled: false } },
+                    physics: { enabled: false },
+                    edges: {
+                        smooth: {
+                            enabled: true,
+                            type: 'straightCross',
+                            forceDirection: 'horizontal',
+                            roundness: 0
+                        }
+                    }
+                });
+                
+                console.log('Switched to manual positioning mode. Nodes can now be dragged freely.');
+            }, 1500);
+            
+        } else {
+            // Manual mode - just apply spacing transformation to existing positions
+            const currentPositions = network.getPositions();
+            const nodeUpdates = [];
+            
+            // Calculate spacing multipliers
+            const horizontalMultiplier = currentLevelSeparation / 200; // Based on original 200px
+            const verticalMultiplier = currentNodeSpacing / 120; // Based on original 120px
+            
+            // Update positions proportionally
+            Object.keys(currentPositions).forEach(nodeId => {
+                const pos = currentPositions[nodeId];
+                nodeUpdates.push({
+                    id: nodeId,
+                    x: pos.x * horizontalMultiplier,
+                    y: pos.y * verticalMultiplier,
+                    physics: false,
+                    fixed: false
+                });
+            });
+            
+            // Update node positions
+            nodes.update(nodeUpdates);
+            
+            // Ensure edges remain straight
+            network.setOptions({
+                edges: {
+                    smooth: {
+                        enabled: true,
+                        type: 'straightCross',
+                        forceDirection: 'horizontal',
+                        roundness: 0
+                    }
+                }
+            });
+            
+            console.log('Applied spacing transformation to existing positions');
+        }
+    }
+    
+    // Event listeners
+    document.getElementById('searchInput').addEventListener('input', function(e) {
+        searchEntities(e.target.value);
+    });
+    
+    document.getElementById('clearButton').addEventListener('click', function() {
+        clearSearch();
+    });
+    
+    document.getElementById('spacingButton').addEventListener('click', function() {
+        increaseSpacing();
+    });
+    
+    document.getElementById('spacingDecreaseButton').addEventListener('click', function() {
+        decreaseSpacing();
+    });
+    
+    document.getElementById('verticalSpacingButton').addEventListener('click', function() {
+        increaseVerticalSpacing();
+    });
+    
+    // Track manual node dragging
+    network.on('dragEnd', function(params) {
+        if (params.nodes.length > 0 && layoutMode === 'manual') {
+            // Update stored positions when nodes are manually moved
+            const newPositions = network.getPositions(params.nodes);
+            Object.assign(storedPositions, newPositions);
+            console.log('Updated stored positions for dragged nodes');
+        }
+    });
+    
+    // Allow Enter key to trigger search
+    document.getElementById('searchInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            searchEntities(e.target.value);
+        }
+    });
+    </script>
+    
+</body>
+</html>

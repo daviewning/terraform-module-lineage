@@ -14,6 +14,7 @@ def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.
     folders = {}
     
     for mid, m in parsed.modules.items():
+        # EXCLUDE source modules from file processing - they represent directories, not files
         if m.file_path and m.file_name and not mid.startswith("source_module:"):
             file_id = f"file:{m.file_path}"
             if file_id not in terraform_files:
@@ -30,7 +31,7 @@ def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.
                     'modules': []
                 }
                 
-                # Collect all folders in the hierarchy (including intermediate folders)
+                # Collect all folders in the hierarchy (including intermediate folders) - but don't assign files yet
                 current_path = folder_path
                 while current_path != parsed.root_dir.parent and current_path != current_path.parent:
                     folder_id = f"folder:{current_path}"
@@ -53,12 +54,13 @@ def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.
                             'parent_path': str(current_path.parent) if current_path.parent != current_path else None
                         }
                     
-                    # Only add file to its immediate parent folder
-                    if current_path == folder_path:
-                        folders[folder_id]['files'].append(file_id)
-                    
                     # Move up the hierarchy
                     current_path = current_path.parent
+                
+                # Now assign the file ONLY to its immediate parent folder
+                immediate_parent_folder_id = f"folder:{folder_path}"
+                if immediate_parent_folder_id in folders:
+                    folders[immediate_parent_folder_id]['files'].append(file_id)
                 
             terraform_files[file_id]['modules'].append(mid)
     
@@ -66,11 +68,19 @@ def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.
     
     # (Terraform file entities are now added after resource processing)
     
-    # Add edges from folders to their contained files
+    # Add edges from folders to their contained files (only for actual leaf folders)
     for folder_id, folder_info in folders.items():
-        for file_id in folder_info['files']:
-            if G.has_node(file_id):
-                G.add_edge(folder_id, file_id, edge_type="contains", style="dashed")
+        # Check if this folder has any child folders
+        has_child_folders = any(
+            other_info.get('parent_path') == folder_info['folder_path'] 
+            for other_info in folders.values()
+        )
+        
+        # Only leaf folders should connect to files
+        if not has_child_folders:
+            for file_id in folder_info['files']:
+                if G.has_node(file_id):
+                    G.add_edge(folder_id, file_id, edge_type="contains", style="dashed")
     
     # Add edges between parent and child folders
     for folder_id, folder_info in folders.items():
@@ -185,6 +195,7 @@ def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.
 
     # NOW Add terraform file entities to the graph (Level 1) - after resource processing
     for file_id, file_info in terraform_files.items():
+        # Always label as terraform file, regardless of what modules it contains
         file_label = f"{file_info['file_name']}\n[terraform file]"
         G.add_node(
             file_id,
@@ -326,14 +337,27 @@ def build_graph(parsed: ParsedTerraform, include_resources: bool = False) -> nx.
             # Connect the local module to the Git repository entity
             G.add_edge(mid, git_id)
     
-    # Add edges for local module sources
+    # Add edges for local module sources (module USES source_module, so source_module -> module)
     for mid, m in parsed.modules.items():
         if m.source and _is_local_source(m.source):
             # Find the source module by looking for source_module entries
             source_modules = _find_source_modules(parsed, m, mid)
             for source_mid in source_modules:
                 if G.has_node(source_mid):
-                    G.add_edge(mid, source_mid)
+                    # Fixed: source module should point TO the module that uses it, not vice versa
+                    G.add_edge(source_mid, mid, edge_type="provides", style="solid")
+    
+    # Add edges from source modules to their contained files (proper hierarchy: source_module -> file -> resource)
+    for mid, m in parsed.modules.items():
+        if mid.startswith("source_module:"):
+            # Connect source module to its terraform files only - be more precise about path matching
+            for file_id, file_info in terraform_files.items():
+                # Check if this file belongs to the source module's directory (exact directory match)
+                if m.dir and file_info['file_path'].startswith(m.dir + "/"):
+                    G.add_edge(mid, file_id, edge_type="contains", style="dashed")
+                elif m.dir and m.dir == file_info.get('folder_path', '').replace('\\', '/'):
+                    # Also handle case where file is directly in the source module directory
+                    G.add_edge(mid, file_id, edge_type="contains", style="dashed")
 
     return G
 
