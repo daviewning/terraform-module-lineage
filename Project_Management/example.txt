@@ -14,4 +14,30 @@ python .\tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraf
 
 python .\tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap\modules" --output ".\out\lineage.html" --include-resources --layout hierarchical --color-by type
 
-.\tflaenv1\Scripts\activate.ps1; python tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap\modules" --output ".\out\lineage.html" --layout hierarchical --color-by type --include-resources
+#0-bootstrap
+.\tflaenv1\Scripts\activate.ps1; python tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap" --output ".\out\lineage_0-bootstrap6.html" --layout hierarchical --color-by type --include-resources
+
+#0-bootstrap\modules
+.\tflaenv1\Scripts\activate.ps1; python tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap\modules" --output ".\out\lineage_modules.html" --layout hierarchical --color-by type --include-resources
+
+#cb-private-pool
+.\tflaenv1\Scripts\activate.ps1; python tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap\modules\cb-private-pool" --output ".\out\lineage_cb-private-pool.html" --layout hierarchical --color-by type --include-resources
+
+#gitlab-oidc
+.\tflaenv1\Scripts\activate.ps1; python tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap\modules\gitlab-oidc" --output ".\out\lineage_gitlab-oidc.html" --layout hierarchical --color-by type --include-resources
+
+#parent-iam-remeber
+.\tflaenv1\Scripts\activate.ps1; python tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap\modules\parent-iam-remeber" --output ".\out_lineage_parent-iam-remeber.html" --layout hierarchical --color-by type --include-resources
+
+#jenkins-agent
+.\tflaenv1\Scripts\activate.ps1; python tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap\modules\jenkins-agent" --output ".\out\lineage_jenkins-agent.html" --layout hierarchical --color-by type --include-resources
+
+#parent-iam-remove-role
+.\tflaenv1\Scripts\activate.ps1; python tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap\modules\parent-iam-remove-role" --output ".\out\lineage_parent-iam-remove-role.html" --layout hierarchical --color-by type --include-resources
+
+#tfc-agent-gke
+.\tflaenv1\Scripts\activate.ps1; python tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap\modules\tfc-agent-gke" --output ".\out\lineage_tfc-agent-gke.html" --layout hierarchical --color-by type --include-resources
+
+
+
+.\tflaenv1\Scripts\activate.ps1; python tfla.py generate --input "C:\Users\newzoneadmin\Documents\Github\terraform-module-lineage\terraform-example-foundation\0-bootstrap\modules" --output ".\out\lineage_0-bootstrap_modules.html" --layout hierarchical --color-by type --include-resources

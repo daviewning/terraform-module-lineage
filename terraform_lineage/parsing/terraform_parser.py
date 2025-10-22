@@ -29,6 +29,7 @@ class ResourceInfo:
     dir: str
     file_path: str | None = None  # Path to the .tf file containing this resource
     file_name: str | None = None  # Name of the .tf file
+    line_number: int | None = None  # Line number where resource starts
     config: Dict[str, Any] = field(default_factory=dict)
     explicit_deps: List[str] = field(default_factory=list)
 
@@ -38,6 +39,23 @@ class ParsedTerraform:
     modules: Dict[str, ModuleInfo]
     resources: Dict[str, ResourceInfo]
     name_index: Dict[str, List[str]]
+
+def _find_resource_line_number(file_path: Path, resource_type: str, resource_name: str) -> int | None:
+    """Find the line number where a resource is defined in a terraform file."""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        # Look for resource definition pattern: resource "type" "name" {
+        resource_pattern = rf'^\s*resource\s+"{re.escape(resource_type)}"\s+"{re.escape(resource_name)}"\s*{{'
+        
+        for i, line in enumerate(lines, 1):  # Line numbers start at 1
+            if re.search(resource_pattern, line):
+                return i
+                
+        return None
+    except Exception:
+        return None
 
 def parse_directory(root_dir: Path) -> ParsedTerraform:
     root_dir = Path(root_dir)
@@ -139,6 +157,9 @@ def parse_directory(root_dir: Path) -> ParsedTerraform:
                     explicit = _normalize_depends_on(resource_config.get("depends_on", []))
                     config = {k: v for k, v in resource_config.items() if k not in ("depends_on",)}
                     
+                    # Find the line number where this resource is defined
+                    line_number = _find_resource_line_number(tf, resource_type, resource_name)
+                    
                     resource_id = f"resource:{rel_dir}:{resource_type}.{resource_name}"
                     ri = ResourceInfo(
                         id=resource_id,
@@ -147,6 +168,7 @@ def parse_directory(root_dir: Path) -> ParsedTerraform:
                         dir=rel_dir,
                         file_path=str(tf),
                         file_name=tf.name,
+                        line_number=line_number,
                         config=config,
                         explicit_deps=explicit,
                     )
